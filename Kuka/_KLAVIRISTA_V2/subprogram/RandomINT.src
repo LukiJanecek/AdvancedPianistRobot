@@ -1,0 +1,11 @@
+&ACCESS RV1
+DEFFCT INT RandomINT ( Min:in,Max:in)
+DECL INT Min
+DECL INT Max
+DECL INT Random
+DECL STATE_T State
+DECL MODUS_T Mode
+Random=0
+CWrite($FCT_CALL, State, Mode, "krl_getRandom",Random, Min, Max)
+RETURN Random
+ENDFCT

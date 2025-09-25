@@ -1,0 +1,409 @@
+&ACCESS RVP
+&REL 320
+&PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2\subprogram
+DEF  SONG_1_legacy ( )
+;FOLD INI;%{PE}
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
+
+;**************** P O Z O R ************************ 
+;ZKONTROLUJ, ZE JE KOLECKO VOLBY SKLADBY
+;NA KLAVIRU NASTAVENO DO VYCHOZI POZICE
+;(DIRA MIRI NAHORU - POZICE 12H) 
+;***************************************************
+INTERRUPT DECL 10 WHEN $IN[8] DO STOP_SONG()
+INTERRUPT OFF 12
+INTERRUPT ON 10 
+$TIMER[5] = 0
+$TIMER[6] = 0
+$TIMER_STOP[5]=TRUE
+$TIMER_STOP[6]=TRUE
+;FOLD Zapnuti a nastaveni
+ PIANO_ON_OFF()
+ IF PyMAX_VOLUME THEN
+ VOLUME_MAX()
+ ENDIF
+ ; zapnuti dance
+;FOLD PTP P1 CONT Vel=30 % PDAT1 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT1
+FDAT_ACT = FP1
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP1 C_Dis
+;ENDFOLD
+;FOLD PTP P2 Vel=30 % PDAT2 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT2; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT2
+FDAT_ACT = FP2
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP2
+;ENDFOLD
+;FOLD WAIT Time= 1.0 sec ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.wait; Time=1.0
+;ENDFOLD
+WAIT SEC 1.0
+;ENDFOLD
+;FOLD PTP P1 Vel=30 % PDAT1 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT1
+FDAT_ACT = FP1
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP1
+;ENDFOLD
+;otoceni koleckem
+;FOLD PTP P73 Vel=17 % PDAT59 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P73; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT59; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT59
+FDAT_ACT = FP73
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP73
+;ENDFOLD
+;FOLD PTP P74 Vel=17 % PDAT60 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P74; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT60; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT60
+FDAT_ACT = FP74
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP74
+;ENDFOLD
+;FOLD PTP P75 Vel=17 % PDAT61 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P75; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT61; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT61
+FDAT_ACT = FP75
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP75
+;ENDFOLD
+;FOLD PTP P76 Vel=17 % PDAT62 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P76; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT62; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT62
+FDAT_ACT = FP76
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP76
+;ENDFOLD
+Pitch = TRUE
+;ENDFOLD
+;FOLD PTP HOME1 Vel=30 % DEFAULT ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=DEFAULT; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PDEFAULT
+FDAT_ACT = FHOME1
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XHOME1
+;ENDFOLD
+
+BAR = 2500
+;DRUM a
+;FOLD PTP P55 Vel=30 % PDAT44 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P55; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT44; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT44
+FDAT_ACT = FP55
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP55
+;ENDFOLD
+TRIGGER WHEN DISTANCE = 0 DELAY = 0 DO $TIMER_STOP[5]=FALSE 
+;FOLD PTP P56 Vel=30 % PDAT45 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P56; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT45; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT45
+FDAT_ACT = FP56
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP56
+;ENDFOLD
+;FOLD PTP P55 Vel=30 % PDAT44 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P55; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT44; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT44
+FDAT_ACT = FP55
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP55
+;ENDFOLD
+;pitch
+;FOLD PTP P57 Vel=30 % PDAT46 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P57; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT46; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT46
+FDAT_ACT = FP57
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP57
+;ENDFOLD
+;FOLD PTP P58 Vel=30 % PDAT47 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P58; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT47; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT47
+FDAT_ACT = FP58
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP58
+;ENDFOLD
+;FOLD PTP P57 Vel=30 % PDAT46 Tool[4]:TQGripper Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P57; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT46; Kuka.VelocityPtp=30; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT46
+FDAT_ACT = FP57
+BAS(#PTP_PARAMS, 30.0)
+SET_CD_PARAMS (0)
+PTP XP57
+;ENDFOLD
+
+;FOLD Tanecek A6
+;ENDFOLD
+
+;BASS a
+;FOLD PTP P70 Vel=17 % PDAT56 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P70; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT56; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT56
+FDAT_ACT = FP70
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP70
+;ENDFOLD
+WAIT FOR $TIMER[5]>2*BAR
+;FOLD PTP P71 Vel=17 % PDAT57 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P71; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT57; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT57
+FDAT_ACT = FP71
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP71
+;ENDFOLD
+
+;FOLD PTP P72 Vel=17 % PDAT58 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P72; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT58; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT58
+FDAT_ACT = FP72
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP72
+;ENDFOLD
+;FOLD Tanecek A5
+;ENDFOLD
+
+FPLAY(0,4*BAR,4*BAR)
+FPLAY(3,6*BAR,6*BAR)
+
+;FOLD PTP P63 CONT Vel=17 % PDAT52 Tool[1] Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P63; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT52; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT52
+FDAT_ACT = FP63
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP63 C_Dis
+;ENDFOLD
+FPLAY(17,8*BAR,8*BAR)
+FPLAY(17,8.25*BAR,8.25*BAR)
+FPLAY(16,8.50*BAR,9*BAR)
+
+FPLAY(17,10*BAR,10*BAR)
+FPLAY(17,10.25*BAR,10.25*BAR)
+FPLAY(19,10.50*BAR,11*BAR)
+WAIT FOR $TIMER[1] <= 11.5*BAR
+;Gliss dodelat s otevrenym chapadlem
+FPLAY(21,12.625*BAR,0)
+FPLAY(21,12.875*BAR,0)
+FPLAY(21,13.125*BAR,0)
+FPLAY(21,13.375*BAR,0)
+FPLAY(21,13.625*BAR,0)
+FPLAY(17,14*BAR,15*BAR)
+
+FPLAY(16,16*BAR,0)
+FPLAY(14,16.25*BAR,0)
+FPLAY(16,16.5*BAR,0)
+FPLAY(14,17*BAR,0)
+FPLAY(14,17.25*BAR,0)
+FPLAY(13,17.5*BAR,0)
+FPLAY(12,17.75*BAR,0)
+FPLAY(17,18.25*BAR,19*BAR)
+
+FPLAY(19,19.25*BAR,0)
+FPLAY(20,19.5*BAR,0)
+FPLAY(21,19.75*BAR,0)
+FPLAY(19,20.25*BAR,0)
+FPLAY(20,20.5*BAR,0)
+FPLAY(21,20.75*BAR,0)
+FPLAY(21,21*BAR,0)
+FPLAY(24,21.5*BAR,22*BAR)
+TRIGGER WHEN DISTANCE = 0 DELAY = 0 DO $TIMER_STOP[5]=TRUE
+;FOLD Gliss
+;FOLD PTP P77 Vel=17 % PDAT63 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P77; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT63; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT63
+FDAT_ACT = FP77
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP77
+;ENDFOLD
+;FOLD SLIN P78 Vel=1 m/s CPDAT17 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=P78; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT17; Kuka.VelocityPath=1; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SLIN
+;ENDFOLD
+SLIN XP78 WITH $VEL = SVEL_CP(1.0, , LCPDAT17), $TOOL = STOOL2(FP78), $BASE = SBASE(FP78.BASE_NO), $IPO_MODE = SIPO_MODE(FP78.IPO_FRAME), $LOAD = SLOAD(FP78.TOOL_NO), $ACC = SACC_CP(LCPDAT17), $ORI_TYPE = SORI_TYP(LCPDAT17), $APO = SAPO(LCPDAT17), $JERK = SJERK(LCPDAT17), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+;FOLD SLIN P79 Vel=1 m/s CPDAT18 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=P79; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT18; Kuka.VelocityPath=1; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SLIN
+;ENDFOLD
+SLIN XP79 WITH $VEL = SVEL_CP(1.0, , LCPDAT18), $TOOL = STOOL2(FP79), $BASE = SBASE(FP79.BASE_NO), $IPO_MODE = SIPO_MODE(FP79.IPO_FRAME), $LOAD = SLOAD(FP79.TOOL_NO), $ACC = SACC_CP(LCPDAT18), $ORI_TYPE = SORI_TYP(LCPDAT18), $APO = SAPO(LCPDAT18), $JERK = SJERK(LCPDAT18), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+;FOLD PTP P80 Vel=17 % PDAT64 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P80; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT64; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT64
+FDAT_ACT = FP80
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP80
+;ENDFOLD
+;ENDFOLD
+
+$TIMER[5] = 0
+
+FOR A = 0 TO 3 STEP 1
+;FOLD PTP P68 Vel=17 % PDAT54 Tool[1] Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P68; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT54; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT54
+FDAT_ACT = FP68
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP68
+;ENDFOLD
+;FOLD SCIRC P17 P16 Vel=1 m/s CPDAT3 Tool[1] Base[0] ;%{PE}
+   ;FOLD Parameters ;%{h}
+      ;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=P16; Kuka.HelpPointName=P17; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT3; Kuka.VelocityPath=1; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SCIRC
+   ;ENDFOLD
+   SCIRC XP17, XP16 WITH $VEL = SVEL_CP(1.0, , LCPDAT3), $TOOL = STOOL2(FP16), $BASE = SBASE(FP16.BASE_NO), $IPO_MODE = SIPO_MODE(FP16.IPO_FRAME), $LOAD = SLOAD(FP16.TOOL_NO), $ACC = SACC_CP(LCPDAT3), $ORI_TYPE = SORI_TYP(LCPDAT3), $CIRC_TYPE = SCIRC_TYP(LCPDAT3), $APO = SAPO(LCPDAT3), $CIRC_MODE = SCIRC_M(LCPDAT3), $JERK = SJERK(LCPDAT3), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+;FOLD SCIRC P17 P68 Vel=1 m/s CPDAT5 Tool[1] Base[0] ;%{PE}
+   ;FOLD Parameters ;%{h}
+      ;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=P68; Kuka.HelpPointName=P17; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT5; Kuka.VelocityPath=1; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SCIRC
+   ;ENDFOLD
+   SCIRC XP17, XP68 WITH $VEL = SVEL_CP(1.0, , LCPDAT5), $TOOL = STOOL2(FP68), $BASE = SBASE(FP68.BASE_NO), $IPO_MODE = SIPO_MODE(FP68.IPO_FRAME), $LOAD = SLOAD(FP68.TOOL_NO), $ACC = SACC_CP(LCPDAT5), $ORI_TYPE = SORI_TYP(LCPDAT5), $CIRC_TYPE = SCIRC_TYP(LCPDAT5), $APO = SAPO(LCPDAT5), $CIRC_MODE = SCIRC_M(LCPDAT5), $JERK = SJERK(LCPDAT5), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+ENDFOR
+PIANO_ON_OFF()
+;FOLD PTP P76 Vel=17 % PDAT62 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P76; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT62; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT62
+FDAT_ACT = FP76
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP76
+;ENDFOLD
+;FOLD PTP P75 Vel=17 % PDAT61 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P75; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT61; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT61
+FDAT_ACT = FP75
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP75
+;ENDFOLD
+;FOLD PTP P74 Vel=17 % PDAT60 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P74; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT60; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT60
+FDAT_ACT = FP74
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP74
+;ENDFOLD
+;FOLD PTP P73 Vel=17 % PDAT59 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P73; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT59; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT59
+FDAT_ACT = FP73
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+PTP XP73
+;ENDFOLD
+PULSE($OUT[1], TRUE, 0.5)
+;FOLD PyEND reset
+PyEND = TRUE
+Wait sec 0.2
+PyEND = FALSE
+;ENDFOLD
+END

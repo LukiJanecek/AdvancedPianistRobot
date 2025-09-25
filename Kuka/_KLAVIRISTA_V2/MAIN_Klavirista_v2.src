@@ -1,0 +1,75 @@
+&ACCESS RVP
+&REL 265
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2
+DEF MAIN_Klavirista_v2( )
+;FOLD INI;%{PE}
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
+  INTERRUPT DECL 12 WHEN $IN[8] DO STOP_MAIN()
+INTERRUPT OFF 12
+INTERRUPT OFF 10
+
+$TIMER[2] = 0
+$TIMER_STOP[2]= FALSE
+$OUT[8]=FALSE
+MoveLeft=TRUE
+
+MsgDialog(button, "Nastav kolecko na pianu do vychozi pozice (zlute znacky u sebe)"," Klavirista"," ","Nastaveno")
+
+;;FOLD SPTP P15 Vel=100 % PDAT12 Tool[1] Base[0] ;%{PE}
+;;FOLD Parameters ;%{h}
+;;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=P15; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT12; Kuka.VelocityPtp=100; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
+;;ENDFOLD
+;SPTP XP15 WITH $VEL_AXIS[1] = SVEL_JOINT(100.0), $TOOL = STOOL2(FP15), $BASE = SBASE(FP15.BASE_NO), $IPO_MODE = SIPO_MODE(FP15.IPO_FRAME), $LOAD = SLOAD(FP15.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT12), $APO = SAPO_PTP(PPDAT12), $GEAR_JERK[1] = SGEAR_JERK(PPDAT12), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;;ENDFOLD
+MsgDialog(button, "Nastav rychlost prehravani programu na 50"," Klavirista"," ","Nastaveno")
+
+
+SPTP $POS_ACT WITH $VEL_AXIS[1] = SVEL_JOINT(10.0), $TOOL = STOOL2(FP8), $BASE = SBASE(FP8.BASE_NO), $IPO_MODE = SIPO_MODE(FP8.IPO_FRAME), $LOAD = SLOAD(FP8.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT8), $APO = SAPO_PTP(PPDAT8), $GEAR_JERK[1] = SGEAR_JERK(PPDAT8), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+
+LOOP
+INTERRUPT OFF 10
+INTERRUPT ON 12
+IF MoveLeft THEN
+XP8.A1=RandomINT(-90,0)
+ELSE
+XP8.A1=RandomINT(0, 30)
+ENDIF
+XP8.A2=RandomINT(-80, -100)
+XP8.A3=RandomINT(50, 80)
+XP8.A4=RandomINT(-45, 45)
+XP8.A5=RandomINT(50, 75)
+;FOLD SPTP P8 CONT Vel=10 % PDAT8 Tool[1] Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=P8; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT8; Kuka.VelocityPtp=10; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
+;ENDFOLD
+SPTP XP8 WITH $VEL_AXIS[1] = SVEL_JOINT(10.0), $TOOL = STOOL2(FP8), $BASE = SBASE(FP8.BASE_NO), $IPO_MODE = SIPO_MODE(FP8.IPO_FRAME), $LOAD = SLOAD(FP8.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT8), $APO = SAPO_PTP(PPDAT8), $GEAR_JERK[1] = SGEAR_JERK(PPDAT8), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+
+
+IF $IN[1] OR PyREGGAE THEN
+SONG_1()
+ENDIF
+
+IF $IN[2] OR PySTUPNICE THEN
+;PULSE($OUT[2], TRUE, 0.5)
+SONG_2()
+ENDIF
+
+IF $IN[3] OR PyBEETHOVEN THEN
+;PULSE($OUT[3], TRUE, 0.5)
+SONG_3()
+ENDIF
+MoveLeft = NOT MoveLeft
+ENDLOOP
+END

@@ -1,0 +1,144 @@
+&ACCESS RVO1
+&REL 22
+&PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2\subprogram
+DEF  SONG_3 ( )
+;FOLD INI;%{PE}
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+INTERRUPT DECL 10 WHEN $IN[8] DO STOP_SONG()
+INTERRUPT ON 10
+INTERRUPT OFF 12
+  ;ENDFOLD (USER INI)
+;ENDFOLD (INI)
+PIANO_ON_OFF()
+IF PyMAX_VOLUME THEN
+ VOLUME_MAX()
+ ENDIF
+;FOLD Otoceni koleckem
+;FOLD PTP P14 Vel=17 % PDAT5 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P14; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT5; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT5
+FDAT_ACT = FP14
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+;PTP XP14
+;ENDFOLD
+;FOLD PTP P13 Vel=17 % PDAT4 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P13; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT4; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT4
+FDAT_ACT = FP13
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+;PTP XP13
+;ENDFOLD
+;FOLD PTP P9 Vel=17 % PDAT3 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P9; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT3; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT3
+FDAT_ACT = FP9
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+;PTP XP9
+;ENDFOLD
+;FOLD CIRC P10 P11 Vel=2 m/s CPDAT4 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P11; Kuka.HelpPointName=P10; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT4; Kuka.VelocityPath=2; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=CIRC
+;ENDFOLD
+$BWDSTART = FALSE
+LDAT_ACT = LCPDAT4
+FDAT_ACT = FP11
+BAS(#CP_PARAMS, 2.0)
+SET_CD_PARAMS (0)
+;CIRC XP10, XP11
+;ENDFOLD
+;FOLD CIRC P12 P9 Vel=2 m/s CPDAT5 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P9; Kuka.HelpPointName=P12; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT5; Kuka.VelocityPath=2; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=CIRC
+;ENDFOLD
+$BWDSTART = FALSE
+LDAT_ACT = LCPDAT5
+FDAT_ACT = FP9
+BAS(#CP_PARAMS, 2.0)
+SET_CD_PARAMS (0)
+;CIRC XP12, XP9
+;ENDFOLD
+;FOLD PTP P14 Vel=17 % PDAT5 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P14; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT5; Kuka.VelocityPtp=17; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT5
+FDAT_ACT = FP14
+BAS(#PTP_PARAMS, 17.0)
+SET_CD_PARAMS (0)
+;PTP XP14
+;ENDFOLD
+;ENDFOLD
+SUSTAIN_ON_OFF()
+BAR = 600
+GRIPPER(2,TRUE)
+GRIPPER(3,FALSE)
+PLAY(9,0,0.5*BAR)
+PLAY(9,0,0.5*BAR)
+PLAY(10,0,0.5*BAR)
+PLAY(11,0,0.5*BAR)
+PLAY(11,0,0.5*BAR)
+PLAY(10,0,0.5*BAR)
+PLAY(9,0,0.5*BAR)
+GRIPPER(4,FALSE)
+PLAY(7.5,0,0.75*BAR)
+
+PLAY(6.5,0,0.5*BAR)
+PLAY(6.5,0,0.5*BAR)
+GRIPPER(3,FALSE)
+PLAY(8,0,0.5*BAR)
+PLAY(9,0,0.5*BAR)
+PLAY(9,0,0.75*BAR)
+PLAY(8,0,0.25*BAR)
+PLAY(8,0,2*BAR)
+
+
+PLAY(9,0,0.5*BAR)
+PLAY(9,0,0.5*BAR)
+PLAY(10,0,0.5*BAR)
+PLAY(11,0,0.5*BAR)
+PLAY(11,0,0.5*BAR)
+PLAY(10,0,0.5*BAR)
+PLAY(9,0,0.5*BAR)
+GRIPPER(4,FALSE)
+PLAY(7.5,0,0.75*BAR)
+
+PLAY(6.5,0,0.5*BAR)
+PLAY(6.5,0,0.5*BAR)
+GRIPPER(3,FALSE)
+PLAY(8,0,0.5*BAR)
+PLAY(9,0,0.5*BAR)
+PLAY(8,0,0.75*BAR)
+GRIPPER(4,FALSE)
+PLAY(6.5,0,0.25*BAR)
+PLAY(6.5,0,2*BAR)
+
+GRIPPER(3,TRUE)
+GRIPPER(2,TRUE)
+GRIPPER(1,TRUE)
+
+PIANO_ON_OFF()
+;FOLD PyEND reset
+PyEND = TRUE
+Wait sec 0.2
+PyEND = FALSE
+;ENDFOLD
+END
