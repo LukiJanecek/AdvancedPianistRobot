@@ -1,1 +1,2 @@
 XDD
+všichni smrdíte saláti
