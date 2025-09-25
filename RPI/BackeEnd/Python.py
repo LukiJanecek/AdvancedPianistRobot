@@ -1,1 +1,3 @@
 XDD
+
+text = "blank project" 
