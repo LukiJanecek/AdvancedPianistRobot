@@ -1,0 +1,28 @@
+&ACCESS RVO1
+&REL 60
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM DISKPATH = KRC:\R1\PPR\Psaci_Robot
+DEF Psani( )
+;FOLD INI;%{PE}
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+;ENDFOLD (INI)
+BOD.X = HomeBOD.X + PyX
+BOD.Y = HomeBOD.Y + PyY
+BOD.Z = HomeBOD.Z + PyZ
+
+BOD.A = HomeBOD.A + PyA
+BOD.B = HomeBOD.B + PyB
+BOD.C = HomeBOD.C + PyC
+
+LIN BOD
+
+END
