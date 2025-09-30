@@ -1,32 +1,22 @@
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
-class Order(BaseModel):
-    name: str
-    ingredients: List[str]
-    volumes: List[int]
+class ConnectReq(BaseModel):
+    ip: Optional[str] = None
+    port: Optional[int] = None
 
-class Glass(BaseModel):
-    name: str
-    ingredients: List[str]
-    volumes: List[int]
+class VarsReq(BaseModel):
+    x: float = 0
+    y: float = 0
+    z: float = 0
+    a: float = 0
+    b: float = 0
+    c: float = 0
 
-class GlassAtPosition(BaseModel):
-    position: conint(ge=0, le=5)
-    glass: Glass
+class WriteVarReq(BaseModel):
+    name: str = Field(..., examples=["PyX"])
+    value: str | float | int | bool
 
-class DeleteGlassPayload(BaseModel):
-    position: conint(ge=0, le=5)
-    name: Optional[str] = None
-
-class BottleAssignment(BaseModel):
-    position: int
-    bottle: str
-
-class DrinkName(BaseModel):
-    name: str
-    position: int
-
-class ChoosedDrink(BaseModel):
-    name: str
-    position: int
+class WordReq(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5)
+    offsetDef: int = 70
