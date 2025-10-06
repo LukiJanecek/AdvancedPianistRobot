@@ -17,6 +17,8 @@ docker logs -f drinkmaker-backend
 
 source venv/bin/activate
 
+https://chatgpt.com/share/68e361f5-9574-800b-9c04-6ea81fbbeb5a
+
 -----------------------------------------------------------------------------------------------------------------
 PEP8 konvence:
 V Pythonu se hodně používají konvence PEP8 (oficiální stylopis).

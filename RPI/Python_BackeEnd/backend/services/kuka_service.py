@@ -1,7 +1,17 @@
 # app/robot_driver.py
 from __future__ import annotations
 import sys, struct, random, socket, threading, time
-from typing import Callable, Dict, Optional
+from typing import Optional
+from typing import Tuple
+
+# mapování not -> (feedback_var, command_var)
+NOTE_MAP: dict[int, Tuple[str, str]] = {
+    # příklady – doplň podle KRL proměnných na robotu
+    60: ("PyTone60Fb", "PyTone60"),
+    61: ("PyTone61Fb", "PyTone61"),
+    62: ("PyTone62Fb", "PyTone62"),
+    # ...
+}
 
 ENCODING = "UTF-8"
 PY2 = sys.version_info[0] == 2
@@ -87,7 +97,6 @@ class OpenShowVar:
 
 
 class KUKAHandler:
-    """Thread-safe wrapper s jednoduchými helpery."""
     def __init__(self):
         self._client: Optional[OpenShowVar] = None
         self._lock = threading.Lock()
@@ -139,10 +148,9 @@ class KUKAHandler:
             return None
         with self._lock:
             return self._client.read(var, debug=False)
+        
 
-    # helpers
     def go_home(self, poll_var_fb="PyDomuFb", cmd_var="PyDomu", timeout=30.0, period=0.2) -> bool:
-        """Sepne PyDomu=TRUE, čeká na PyDomuFb, potom oboje shodí na FALSE."""
         if not self.is_connected():
             return False
         self.write(cmd_var, True)
@@ -152,10 +160,30 @@ class KUKAHandler:
                 break
             time.sleep(period)
         else:
-            # timeout
             self.write(cmd_var, False)
             return False
+        
         # reset flags
         self.write(cmd_var, False)
         self.write(poll_var_fb, False)
         return True
+    
+
+    def go_to_note(self, poll_var_fb, cmd_var, timeout=10.0, period=0.2) -> bool:
+      if not self.is_connected():
+          return False
+      
+      self.write(cmd_var, True)
+      t0 = time.time()
+      while time.time() - t0 < timeout:
+          if self.read_bool(poll_var_fb):
+              break
+          time.sleep(period)
+      else:
+          self.write(cmd_var, False)
+          return False
+      
+      # reset flags
+      self.write(cmd_var, False)
+      self.write(poll_var_fb, False)
+      return True

@@ -8,7 +8,7 @@ router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
 robot = KUKAHandler()
 
-@router_kuka.get("/status")
+@router_kuka.get("/robot/status")
 def status():
     return {
         "connected": robot.is_connected(),
@@ -16,7 +16,7 @@ def status():
         "port": getattr(robot, "_port", None),
     }
 
-@router_kuka.post("/connect")
+@router_kuka.post("/robot/connect")
 def connect(req: ConnectReq):
     ip = req.ip or settings.ROBOT_IP
     port = req.port or settings.ROBOT_PORT
@@ -28,16 +28,16 @@ def connect(req: ConnectReq):
     except Exception as e:
         raise HTTPException(500, f"Connect exception: {e}")
 
-@router_kuka.post("/disconnect")
+@router_kuka.post("/robot/disconnect")
 def disconnect():
     robot.close()
     return {"connected": False}
 
-@router_kuka.post("/home")
-def go_home(timeout: float = Query(30.0, ge=1.0, le=120.0)):
+@router_kuka.post("/robot/home")
+def go_home():
     if not robot.is_connected():
         raise HTTPException(400, "Not connected")
-    ok = robot.go_home(timeout=timeout)
+    ok = robot.go_home()
     if not ok:
         raise HTTPException(504, "Home timeout")
     return {"ok": True}

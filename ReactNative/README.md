@@ -1,6 +1,6 @@
 Pro spuštení expo:
 -Je třeba být v složce aplikace
-  - pokud je to čerstvý commit.. je přeba dát ještě před zkuštením npm install
+  - pokud je to čerstvý commit.. je přeba dát ještě před spuštením npm install
   - poté do terminálu dát: "npx expo start"
 
 
@@ -12,3 +12,6 @@ Pro spuštění ve web je třeba doinstalovat balíček: "npx expo install react
 npx expo export -p web
 
 npx expo export -p android
+
+
+https://chatgpt.com/share/68e361f5-9574-800b-9c04-6ea81fbbeb5a
