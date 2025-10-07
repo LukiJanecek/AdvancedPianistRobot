@@ -12,6 +12,7 @@ export default function MainScreen() {
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
+  const [lastPayload, setLastPayload] = useState<any | null>(null);
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
@@ -22,24 +23,34 @@ export default function MainScreen() {
   const BLACK_LEFT = WHITE_W - BLACK_W / 2 + WRAP_MARGIN;
 
   const onWhitePress = (k: number) => {
-    setLastPressed(`White ${k}`);
-    send({ type: "note_on", note: k, vel: 100, ts: Date.now() });
-    // volitelně po krátké době "note_off"
-    setTimeout(() => send({ type: "note_off", note: k, ts: Date.now() }), 80);
+    const payloadOn = { type: "note_on", note: k, vel: 100, ts: Date.now() };
+    const payloadOff = { type: "note_off", note: k, ts: Date.now() };
+
+    setLastPressed(`White key ${k} pressed`);
+    setLastPayload(payloadOn);
+
+    send(payloadOn);
+    setTimeout(() => send(payloadOff), 80);
   };
 
   const onBlackPress = (k: number) => {
-    setLastPressed(`Black ${k}#`);
-    send({ type: "note_on", note: `${k}#`, vel: 100, ts: Date.now() });
-    // volitelně po krátké době "note_off"
-    setTimeout(() => send({ type: "note_off", note: `${k}#`, ts: Date.now() }), 80);
+    const payloadOn = { type: "note_on", note: `${k}#`, vel: 100, ts: Date.now() };
+    const payloadOff = { type: "note_off", note: `${k}#`, ts: Date.now() };
+
+    setLastPressed(`Black key ${k}# pressed`);
+    setLastPayload(payloadOn);
+
+    send(payloadOn);
+    setTimeout(() => send(payloadOff), 80);
   };
 
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Pianist page</ThemedText>
       <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
-      
+      <ThemedText style={styles.text}>
+        WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"} • performer: {presence?.has_performer ? "YES" : "NO"}
+      </ThemedText>
       <View style={styles.keysWrap}>
         <ScrollView 
           horizontal 
@@ -81,6 +92,11 @@ export default function MainScreen() {
         <ThemedText style={styles.footerText}>
           {lastPressed ? lastPressed : 'No key pressed yet'}
         </ThemedText>
+        {lastPayload && (
+          <ThemedText style={styles.footerPayload}>
+            {JSON.stringify(lastPayload, null, 2)}
+          </ThemedText>
+        )}
       </View>
     </ThemedView>
   );
@@ -163,5 +179,10 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: '#374151',
+  },
+  footerPayload: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#6b7280", // šedá
   },
 });
