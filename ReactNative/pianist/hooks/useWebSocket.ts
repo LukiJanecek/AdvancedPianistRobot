@@ -15,7 +15,7 @@ type ConnState = "idle" | "connecting" | "open" | "closing" | "closed";
 // ✨ jednotný typ timeru pro RN
 type TimerId = ReturnType<typeof setInterval>;
 
-export function useWebSocketRN(
+export function useWebSocket(
   device: string,
   desiredRole: "performer" | "watcher" = "performer",
   { echoSelf = false }: { echoSelf?: boolean } = {}
