@@ -7,6 +7,7 @@ type PresenceMsg = {
   members: Array<{ client_id: string; device: string; role: string }>;
   has_performer?: boolean;
   watchers?: number;
+  note?:number;
 };
 
 type AnyMsg = PresenceMsg | Record<string, any>;
@@ -23,7 +24,7 @@ export function useWebSocket(
   const [events, setEvents] = useState<AnyMsg[]>([]);
   const [presence, setPresence] = useState<PresenceMsg | null>(null);
   const [state, setState] = useState<ConnState>("idle");
-  const [activeRole, setActiveRole] = useState<"performer" | "watcher">(desiredRole);
+  const [activeRole, setActiveRole] = useState<"performer" | "watcher">("performer");
 
   const wsRef = useRef<WebSocket | null>(null);
   const hbRef = useRef<TimerId | null>(null);
@@ -53,7 +54,6 @@ export function useWebSocket(
     ws.onopen = () => {
       retryRef.current = { tries: 0 };
       setState("open");
-      setActiveRole(role);
 
       if (hbRef.current) clearInterval(hbRef.current);
       hbRef.current = setInterval(() => {
@@ -64,16 +64,34 @@ export function useWebSocket(
     ws.onmessage = (e) => {
       try {
         const msg: AnyMsg = JSON.parse(e.data);
+
+        if (msg?.type === "info" && (msg as any)?.event === "role_downgraded") {
+          setActiveRole("watcher");
+          setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
+        if (msg?.type === "info" && (msg as any)?.event === "role_upgraded") {
+          setActiveRole("performer");
+          setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
+        if (msg?.type === "info" && (msg as any)?.event === "role_assigned") {
+          setActiveRole((msg as any).role === "performer" ? "performer" : "watcher");
+          setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
         if (msg?.type === "presence") {
           setPresence(msg as PresenceMsg);
         } else if (msg?.type === "error" && (msg as any)?.reason === "performer_exists") {
-          // Server poslal chybu těsně před zavřením
           setEvents((prev) => [...prev, msg]);
         } else {
           setEvents((prev) => [...prev, msg]);
         }
       } catch {
-        // nevalidní JSON – ignoruj nebo loguj
+        // ignore
       }
     };
 
@@ -130,7 +148,14 @@ export function useWebSocket(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, desiredRole, echoSelf]);
 
+  // --- NOVÉ: helper, jestli může uživatel posílat „play“ eventy
+  const canControl = () => state === "open" && activeRole === "performer";
+
   const send = (obj: any) => {
+    const isControlMsg = obj?.type === "note_on" || obj?.type === "note_off" || obj?.type === "sustain";
+
+    if (isControlMsg && !canControl()) return false;
+
     if (state !== "open" || !wsRef.current) return false;
     try {
       wsRef.current.send(JSON.stringify(obj));
@@ -139,12 +164,13 @@ export function useWebSocket(
       return false;
     }
   };
-
+  
   return {
     events,
     presence,          // {members, has_performer, watchers}
     send,
     state,             // 'idle' | 'connecting' | 'open' | 'closing' | 'closed'
     role: activeRole,  // skutečně aktivní role po handshake/rejectu
+    canControl: canControl(), // <- volitelné: předej do UI
   };
 }

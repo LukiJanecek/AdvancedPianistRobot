@@ -1,14 +1,14 @@
 import { StyleSheet, ScrollView, Pressable, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function MainScreen() {
 
-  const { send, presence, role, state } = useWebSocket("piano-user", "performer");
-
+  const { send, presence, role, state, canControl, events } = useWebSocket(Date.now().toString());
+  
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
@@ -16,6 +16,30 @@ export default function MainScreen() {
 
   const whiteKeyDownTs = useRef<{ [key: number]: number }>({});
   const blackKeyDownTs = useRef<{ [key: number]: number }>({});
+
+    // --- Nové: stav pro zmáčknuté klávesy podle příchozích zpráv
+  const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
+
+useEffect(() => {
+  if (!events.length) return;
+  const last = events[events.length - 1];
+  if (
+    (last.type === "note_on" || last.type === "note_off") &&
+    typeof last.note !== "undefined"
+  ) {
+    if (last.type === "note_on") {
+      setPressedKeys(prev => ({ ...prev, [last.note]: true }));
+    }
+    if (last.type === "note_off") {
+      setPressedKeys(prev => {
+        const updated = { ...prev };
+        delete updated[last.note];
+        return updated;
+      });
+    }
+  }
+}, [events]);
+
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
@@ -26,6 +50,7 @@ export default function MainScreen() {
   const BLACK_LEFT = WHITE_W - BLACK_W / 2 + WRAP_MARGIN;
 
   const onWhitePressIn = (k: number) => {
+    if (!canControl) return;
     const ts = Date.now();
     whiteKeyDownTs.current[k] = ts;
     const payloadOn = { type: "note_on", note: k, vel: 100, ts };
@@ -35,6 +60,7 @@ export default function MainScreen() {
   };
 
   const onWhitePressOut = (k: number) => {
+    if (!canControl) return;
     const tsUp = Date.now();
     const tsDown = whiteKeyDownTs.current[k];
     const duration = tsDown ? tsUp - tsDown : undefined;
@@ -45,6 +71,7 @@ export default function MainScreen() {
   };
 
   const onBlackPressIn = (k: number) => {
+    if (!canControl) return;
     const ts = Date.now();
     blackKeyDownTs.current[k] = ts;
     const payloadOn = { type: "note_on", note: `${k}#`, vel: 100, ts };
@@ -54,6 +81,7 @@ export default function MainScreen() {
   };
 
   const onBlackPressOut = (k: number) => {
+    if (!canControl) return;
     const tsUp = Date.now();
     const tsDown = blackKeyDownTs.current[k];
     const duration = tsDown ? tsUp - tsDown : undefined;
@@ -68,8 +96,13 @@ export default function MainScreen() {
       <ThemedText type="title">Pianist page</ThemedText>
       <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
       <ThemedText style={styles.text}>
-        WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"} • performer: {presence?.has_performer ? "YES" : "NO"}
+        WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
       </ThemedText>
+      {role !== "performer" && (
+        <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
+          Room už má performera — Jsi watcher (ovládání vypnuto).
+        </ThemedText>
+      )}
       <View style={styles.keysWrap}>
         <ScrollView 
           horizontal 
@@ -84,7 +117,11 @@ export default function MainScreen() {
             {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
-                  style={({ pressed }) => [styles.whiteKey, { backgroundColor: pressed ? '#ddd' : '#fff' },]}
+                  disabled={!canControl}
+                  style={({ pressed }) => [
+                    styles.whiteKey,
+                    { backgroundColor: pressed || pressedKeys[key] ? '#ddd' : '#fff' },
+                  ]}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                 >
@@ -94,7 +131,11 @@ export default function MainScreen() {
                 {/* Black keys  */}
                 {blackKeyPositions.includes(key) && (
                   <Pressable
-                    style={({ pressed }) => [styles.blackKey, { backgroundColor: pressed ? '#444' : '#000', left: BLACK_LEFT }]}
+                    disabled={!canControl}
+                    style={({ pressed }) => [
+                      styles.blackKey,
+                      { backgroundColor: pressed || pressedKeys[`${key}#`] ? '#444' : '#000', left: BLACK_LEFT },
+                    ]}
                     onPressIn={() => onBlackPressIn(key)}
                     onPressOut={() => onBlackPressOut(key)}
                   >

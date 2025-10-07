@@ -3,6 +3,7 @@ import json, uuid, asyncio
 from dataclasses import dataclass
 from typing import Dict, Set, Optional
 from fastapi import WebSocket
+from dataclasses import replace
 
 @dataclass(frozen=True, eq=True)
 class Conn:
@@ -41,8 +42,29 @@ class RoomHub:
         async with self.lock:
             if room in self.rooms:
                 self.rooms[room].discard(c)
+                # Zjisti, jestli performer odešel
+                performer_gone = c.role == "performer"
                 if not self.rooms[room]:
                     del self.rooms[room]
+                else:
+                    # Pokud performer odešel, povyš jednoho watcher-a
+                    if performer_gone:
+                        for member in self.rooms[room]:
+                            if member.role == "watcher":
+                                # Změň roli na performer
+                                upgraded = replace(member, role="performer")
+                                self.rooms[room].discard(member)
+                                self.rooms[room].add(upgraded)
+                                try:
+                                    await upgraded.ws.send_text(json.dumps({
+                                        "type": "info",
+                                        "event": "role_upgraded",
+                                        "role": "performer",
+                                        "message": "Byl jsi povýšen na performera.",
+                                    }, separators=(",", ":")))
+                                except Exception:
+                                    pass
+                                break
         await self._presence(room)
 
     async def send_room(self, room: str, msg: dict, skip: Optional[str] = None):
