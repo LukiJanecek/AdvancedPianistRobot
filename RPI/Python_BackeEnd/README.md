@@ -10,6 +10,9 @@ Do terminálu: ".\venv\Scripts\Activate.ps1"
 pak: "cd backend"
 pak: "python -m uvicorn main:app --reload"
 
+Nyní doplněno o:
+.\startBackend.ps1
+
 
 RPI:
 Pro pozorování logu:
