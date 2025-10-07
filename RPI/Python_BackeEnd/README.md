@@ -1,16 +1,6 @@
 PC:
-Zprvu je třeba tvorba venv:
 Je třeba být ve složce Python_Backend.
-Do terminálu: "python3 -m venv venv"
-
-Aktivace:
-Je třeba být ve složce Python_Backend
-Do terminálu: ".\venv\Scripts\Activate.ps1"
-
-pak: "cd backend"
-pak: "python -m uvicorn main:app --reload"
-
-Nyní doplněno o:
+a do terminálu
 .\startBackend.ps1
 
 
