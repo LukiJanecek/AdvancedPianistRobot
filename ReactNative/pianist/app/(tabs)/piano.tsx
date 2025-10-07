@@ -3,6 +3,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState } from 'react';
 
+import { useWebSocket } from '@/hooks/useWebSocket';
+
 export default function MainScreen() {
 
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
