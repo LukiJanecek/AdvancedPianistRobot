@@ -7,6 +7,8 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function MainScreen() {
 
+  const { send, presence, role, state } = useWebSocket("rn-phone", "performer");
+
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
@@ -18,6 +20,20 @@ export default function MainScreen() {
   const BLACK_TUNE_RIGHT = 20;                    // tvé „posunout doprava o ~20“
   //const BLACK_LEFT = BLACK_BASE_LEFT + BLACK_TUNE_RIGHT;
   const BLACK_LEFT = WHITE_W - BLACK_W / 2 + WRAP_MARGIN;
+
+  const onWhitePress = (k: number) => {
+    setLastPressed(`White ${k}`);
+    send({ type: "note_on", note: k, vel: 100, ts: Date.now() });
+    // volitelně po krátké době "note_off"
+    setTimeout(() => send({ type: "note_off", note: k, ts: Date.now() }), 80);
+  };
+
+  const onBlackPress = (k: number) => {
+    setLastPressed(`Black ${k}#`);
+    send({ type: "note_on", note: `${k}#`, vel: 100, ts: Date.now() });
+    // volitelně po krátké době "note_off"
+    setTimeout(() => send({ type: "note_off", note: `${k}#`, ts: Date.now() }), 80);
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -39,7 +55,7 @@ export default function MainScreen() {
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                   style={({ pressed }) => [styles.whiteKey, { backgroundColor: pressed ? '#ddd' : '#fff' },]}
-                  onPress={() => {console.log(`White key ${key} pressed`); setLastPressed(`White key ${key} pressed`);}}
+                  onPress={() => {console.log(`White key ${key} pressed`); setLastPressed(`White key ${key} pressed`); onWhitePress(key); }}
                 >
                   <ThemedText style={styles.keyLabel}>{key}</ThemedText>
                 </Pressable>
@@ -48,7 +64,7 @@ export default function MainScreen() {
                 {blackKeyPositions.includes(key) && (
                   <Pressable
                     style={({ pressed }) => [styles.blackKey, { backgroundColor: pressed ? '#444' : '#000', left: BLACK_LEFT }]}
-                    onPress={() => {console.log(`Black key ${key}# pressed`); setLastPressed(`Black key ${key}# pressed`);}}
+                    onPress={() => {console.log(`Black key ${key}# pressed`); setLastPressed(`Black key ${key}# pressed`); onBlackPress(key); }}
                   >
                     <ThemedText style={styles.blackKeyLabel}>
                       {key}#
