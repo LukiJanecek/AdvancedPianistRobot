@@ -30,6 +30,11 @@ export function useWebSocket(
   const retryRef = useRef<{ tries: number; lastCode?: number }>({ tries: 0 });
 
   const openSocket = (role: "performer" | "watcher") => {
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch {}
+      wsRef.current = null;
+    }
+
     const qp = new URLSearchParams({
       room: ROOM,
       token: TOKEN,
@@ -50,7 +55,6 @@ export function useWebSocket(
       setState("open");
       setActiveRole(role);
 
-      // ❤️ heartbeat – používá VÝŠE deklarovaný hbRef
       if (hbRef.current) clearInterval(hbRef.current);
       hbRef.current = setInterval(() => {
         try { wsRef.current?.send(JSON.stringify({ type: "ping", ts: Date.now() })); } catch {}

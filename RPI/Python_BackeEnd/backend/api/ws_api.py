@@ -47,15 +47,14 @@ async def ws_endpoint(
         except Exception:
             pass
         await ws.close(code=4403)  # Forbidden
+        print("HERE")
         return
 
     # 4) Hlavní smyčka
     try:
         while True:
             raw = await ws.receive_text()
-
-            # OPRAVA: původně se logovalo `data` před jeho vytvořením
-            print("Přijatý raw:", raw)
+            print("[WS]Přijatý raw:", raw)
 
             # Parsování příchozí zprávy
             if raw.startswith("{"):
@@ -66,6 +65,7 @@ async def ws_endpoint(
             # Keepalive
             if data.type == "ping":
                 await ws.send_text('{"type":"pong"}')
+                print("[WS]Odesílám pong")
                 continue
 
             payload = {
@@ -74,6 +74,7 @@ async def ws_endpoint(
                 "vel": data.vel if getattr(data, "type", None) == "note_on" else None,
                 "sustain": getattr(data, "sustain", None),
                 "ts": getattr(data, "ts", None),
+                "duration": getattr(data, "duration", None),
                 "from_id": conn.client_id,
                 "device": conn.device,
                 "role": conn.role,

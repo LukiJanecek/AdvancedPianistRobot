@@ -1,18 +1,21 @@
 import { StyleSheet, ScrollView, Pressable, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function MainScreen() {
 
-  const { send, presence, role, state } = useWebSocket("rn-phone", "performer");
+  const { send, presence, role, state } = useWebSocket("piano-user", "performer");
 
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
+
+  const whiteKeyDownTs = useRef<{ [key: number]: number }>({});
+  const blackKeyDownTs = useRef<{ [key: number]: number }>({});
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
@@ -22,26 +25,42 @@ export default function MainScreen() {
   //const BLACK_LEFT = BLACK_BASE_LEFT + BLACK_TUNE_RIGHT;
   const BLACK_LEFT = WHITE_W - BLACK_W / 2 + WRAP_MARGIN;
 
-  const onWhitePress = (k: number) => {
-    const payloadOn = { type: "note_on", note: k, vel: 100, ts: Date.now() };
-    const payloadOff = { type: "note_off", note: k, ts: Date.now() };
-
+  const onWhitePressIn = (k: number) => {
+    const ts = Date.now();
+    whiteKeyDownTs.current[k] = ts;
+    const payloadOn = { type: "note_on", note: k, vel: 100, ts };
     setLastPressed(`White key ${k} pressed`);
     setLastPayload(payloadOn);
-
     send(payloadOn);
-    setTimeout(() => send(payloadOff), 80);
   };
 
-  const onBlackPress = (k: number) => {
-    const payloadOn = { type: "note_on", note: `${k}#`, vel: 100, ts: Date.now() };
-    const payloadOff = { type: "note_off", note: `${k}#`, ts: Date.now() };
+  const onWhitePressOut = (k: number) => {
+    const tsUp = Date.now();
+    const tsDown = whiteKeyDownTs.current[k];
+    const duration = tsDown ? tsUp - tsDown : undefined;
+    const payloadOff = { type: "note_off", note: k, ts: tsUp, duration };
+    setLastPayload(payloadOff);
+    send(payloadOff);
+    delete whiteKeyDownTs.current[k];
+  };
 
+  const onBlackPressIn = (k: number) => {
+    const ts = Date.now();
+    blackKeyDownTs.current[k] = ts;
+    const payloadOn = { type: "note_on", note: `${k}#`, vel: 100, ts };
     setLastPressed(`Black key ${k}# pressed`);
     setLastPayload(payloadOn);
-
     send(payloadOn);
-    setTimeout(() => send(payloadOff), 80);
+  };
+
+  const onBlackPressOut = (k: number) => {
+    const tsUp = Date.now();
+    const tsDown = blackKeyDownTs.current[k];
+    const duration = tsDown ? tsUp - tsDown : undefined;
+    const payloadOff = { type: "note_off", note: `${k}#`, ts: tsUp, duration };
+    setLastPayload(payloadOff);
+    send(payloadOff);
+    delete blackKeyDownTs.current[k];
   };
 
   return (
@@ -66,7 +85,8 @@ export default function MainScreen() {
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                   style={({ pressed }) => [styles.whiteKey, { backgroundColor: pressed ? '#ddd' : '#fff' },]}
-                  onPress={() => {console.log(`White key ${key} pressed`); setLastPressed(`White key ${key} pressed`); onWhitePress(key); }}
+                  onPressIn={() => onWhitePressIn(key)}
+                  onPressOut={() => onWhitePressOut(key)}
                 >
                   <ThemedText style={styles.keyLabel}>{key}</ThemedText>
                 </Pressable>
@@ -75,7 +95,8 @@ export default function MainScreen() {
                 {blackKeyPositions.includes(key) && (
                   <Pressable
                     style={({ pressed }) => [styles.blackKey, { backgroundColor: pressed ? '#444' : '#000', left: BLACK_LEFT }]}
-                    onPress={() => {console.log(`Black key ${key}# pressed`); setLastPressed(`Black key ${key}# pressed`); onBlackPress(key); }}
+                    onPressIn={() => onBlackPressIn(key)}
+                    onPressOut={() => onBlackPressOut(key)}
                   >
                     <ThemedText style={styles.blackKeyLabel}>
                       {key}#
