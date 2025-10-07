@@ -12,7 +12,7 @@ type PresenceMsg = {
 type AnyMsg = PresenceMsg | Record<string, any>;
 type ConnState = "idle" | "connecting" | "open" | "closing" | "closed";
 
-// ✨ jednotný typ timeru pro RN
+
 type TimerId = ReturnType<typeof setInterval>;
 
 export function useWebSocket(
