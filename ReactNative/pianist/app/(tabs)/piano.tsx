@@ -98,7 +98,12 @@ useEffect(() => {
       <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
       </ThemedText>
-      {role !== "performer" && (
+      {role === "undefined" && (
+        <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
+          Čekám na přiřazení role od serveru...
+        </ThemedText>
+      )}
+      {role !== "performer" && role !== "undefined" && (
         <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
           Room už má performera — Jsi watcher (ovládání vypnuto).
         </ThemedText>

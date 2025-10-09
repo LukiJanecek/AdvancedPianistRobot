@@ -24,13 +24,13 @@ export function useWebSocket(
   const [events, setEvents] = useState<AnyMsg[]>([]);
   const [presence, setPresence] = useState<PresenceMsg | null>(null);
   const [state, setState] = useState<ConnState>("idle");
-  const [activeRole, setActiveRole] = useState<"performer" | "watcher">("performer");
+  const [activeRole, setActiveRole] = useState<"performer" | "watcher" | "undefined">("undefined");
 
   const wsRef = useRef<WebSocket | null>(null);
   const hbRef = useRef<TimerId | null>(null);
   const retryRef = useRef<{ tries: number; lastCode?: number }>({ tries: 0 });
 
-  const openSocket = (role: "performer" | "watcher") => {
+  const openSocket = (role: "performer" | "watcher" | "undefined") => {
     if (wsRef.current) {
       try { wsRef.current.close(); } catch {}
       wsRef.current = null;
@@ -44,7 +44,6 @@ export function useWebSocket(
       echo_self: String(echoSelf),
     }).toString();
 
-    // DŮLEŽITÉ: SERVER_WS musí být ve tvaru "ws://192.168.1.50:8000/ws"
     const url = `${SERVER_WS}?${qp}`;
 
     setState("connecting");
@@ -101,6 +100,7 @@ export function useWebSocket(
 
     ws.onclose = (ev) => {
       setState("closed");
+      setActiveRole("undefined");
       if (hbRef.current) { clearInterval(hbRef.current); hbRef.current = null; }
 
       // Auto-reconnect s exponenciálním backoffem (max ~10 s)
@@ -148,7 +148,6 @@ export function useWebSocket(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, desiredRole, echoSelf]);
 
-  // --- NOVÉ: helper, jestli může uživatel posílat „play“ eventy
   const canControl = () => state === "open" && activeRole === "performer";
 
   const send = (obj: any) => {
