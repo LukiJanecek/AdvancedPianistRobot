@@ -1,0 +1,118 @@
+# api/ws_api
+import json
+from dataclasses import replace
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from services.ws_hub_service import hub, new_conn
+from models.ws_message import WSIn
+
+router_ws = APIRouter()
+
+API_TOKEN = "demo-token"   # natvrdo
+VALID_ROLES = {"watcher", "performer"}
+
+@router_ws.websocket("/ws")
+async def ws_endpoint(
+    ws: WebSocket,
+    room: str = Query(...),
+    token: str = Query(""),
+    device: str = Query("web"),
+    role: str = Query("watcher"),
+    echo_self: bool = Query(False),
+):
+    client_ip = ws.client.host if ws.client else "unknown"
+    # 1) Auth
+    if token != API_TOKEN:
+        await ws.close(code=4401)  # Unauthorized
+        return
+
+    # 2) Normalizace/validace role
+    role = role.lower().strip()
+    if role not in VALID_ROLES:
+        await ws.close(code=4400)  # Bad Request
+        return
+
+    # 3) Vytvoř připojení a pokus se přidat do místnosti
+    base_conn = new_conn(ws, device, role)
+    active_conn = base_conn
+
+    joined = await hub.join(room, active_conn)  # False = např. performer už existuje
+
+    # 3a) Fallback: performer → watcher (pokud performer už existuje)
+    if not joined and role == "performer":
+        
+        try:
+            active_conn = replace(base_conn, role="watcher")
+        except TypeError:
+            # Kdyby to nebyl dataclass (okrajový případ), vytvoř nové připojení jako watcher
+            active_conn = new_conn(ws, device, "watcher")
+
+        joined = await hub.join(room, active_conn)
+
+
+    if not joined:
+        # Nepodařilo se připojit ani po fallbacku
+        try:
+            await ws.send_text(json.dumps({
+                "type": "error",
+                "reason": "join_failed",
+                "message": "Nelze se připojit do místnosti.",
+            }, separators=(",", ":")))
+        except Exception:
+            pass
+        await ws.close(code=4403)  # Forbidden
+        return
+    
+    if active_conn.role == "performer":
+        print(f"[WS][{client_ip}] Novy performer") 
+    else:
+        print(f"[WS][{client_ip}] Performer obsazen.. prirazena role watcher")
+        
+    try:
+        await ws.send_text(json.dumps({
+            "type": "info",
+            "event": "role_assigned",
+            "role": active_conn.role,
+            "device": active_conn.device,
+            "room": room,
+            "message": f"Vaše role je {active_conn.role}.",
+        }, separators=(",", ":")))
+    except Exception:
+        pass
+    
+
+    # 4) Hlavní smyčka
+    try:
+        while True:
+            raw = await ws.receive_text()
+            print(f"[WS][{client_ip}] Přijatý raw:", raw)
+            # Parsování příchozí zprávy
+            if raw.startswith("{"):
+                data = WSIn.model_validate_json(raw)
+            else:
+                data = WSIn(type="event")
+
+            # Keepalive
+            if data.type == "ping":
+                await ws.send_text('{"type":"pong"}')
+                print(f"[WS][{client_ip}] Odesílám pong")
+                continue
+
+            payload = {
+                "type": data.type,
+                "note": getattr(data, "note", None),
+                "vel": data.vel if getattr(data, "type", None) == "note_on" else None,
+                "sustain": getattr(data, "sustain", None),
+                "ts": getattr(data, "ts", None),
+                "duration": getattr(data, "duration", None),
+                "from_id": active_conn.client_id,
+                "device": active_conn.device,
+                "role": active_conn.role,
+                "room": room,
+            }
+
+            await hub.send_room(room, payload, skip=None if echo_self else active_conn.client_id)
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await hub.leave(room, active_conn)
