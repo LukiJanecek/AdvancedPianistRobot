@@ -6,6 +6,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+export const unstable_settings = { initialRouteName: '(tabs)' };
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -17,23 +19,30 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
-        name="index"
+        name="piano_be"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Pianist BE',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="piano_fe"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Pianist FE',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="pianist"
+        name="songs_be"
         options={{
-          title: 'Pianist',
+          title: 'Songs BE',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="songs_fe"
+        options={{
+          title: 'Songs FE',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
         }}
       />

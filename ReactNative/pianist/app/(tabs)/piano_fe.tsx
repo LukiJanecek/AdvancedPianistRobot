@@ -93,7 +93,7 @@ useEffect(() => {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Pianist page</ThemedText>
+      <ThemedText type="title">Piano</ThemedText>
       <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
       <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
