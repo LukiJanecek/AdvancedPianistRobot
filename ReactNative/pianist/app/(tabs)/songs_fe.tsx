@@ -6,22 +6,22 @@ import { useState } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function MainScreen() {
-  // jedinečný identifikátor klienta; klidně si předej jiný (deviceId apod.)
   const { send, presence, role, state, canControl } = useWebSocket(Date.now().toString());
 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
   const buttons = [
-    { id: 1, label: 'Song 1' },
-    { id: 2, label: 'Song 2' },
-    { id: 3, label: 'Song 3' },
+    { id: 1, label: 'Lehká' },
+    { id: 2, label: 'Střední' },
+    { id: 3, label: 'Těžká' },
   ];
 
   const onPressSong = (btn: { id: number; label: string }) => {
-    if (!canControl) return;
+    if (!canControl) {
+      return;
+    }
     const ts = Date.now();
-    // jednoduchá zpráva pro BE: který button byl stisknut
     const payload = { type: 'song_button', button: btn.id, label: btn.label, ts };
     send(payload);
     setLastPressed(`${btn.label} pressed`);
@@ -31,7 +31,7 @@ export default function MainScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Songs</ThemedText>
-      <ThemedText style={styles.text}>Zvol song a odešli na KUKA robota.</ThemedText>
+      <ThemedText style={styles.text}>Zvoli svou písničku a odešli na KUKA robota.</ThemedText>
       <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
       </ThemedText>
