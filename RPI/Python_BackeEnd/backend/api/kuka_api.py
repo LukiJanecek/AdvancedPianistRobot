@@ -41,3 +41,13 @@ def go_home():
     if not ok:
         raise HTTPException(504, "Home timeout")
     return {"ok": True}
+
+
+@router_kuka.post("/robot/playSong")
+def play_song(song: int = Query(...)):
+    if not robot.is_connected():
+        raise HTTPException(400, "Not connected")
+    ok = robot.play_song(song_number=song)
+    if not ok:
+        raise HTTPException(504, "Song play timeout")
+    return {"ok": True}

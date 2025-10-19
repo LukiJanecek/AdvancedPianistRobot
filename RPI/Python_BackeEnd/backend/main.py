@@ -17,7 +17,6 @@ app = FastAPI(
     openapi_tags=[
         {"name": "General", "description": "Obecná funkce API"},
         {"name": "Kuka", "description": "Funkce pro ovládání KUKA robota"},
-        {"name": "WebSocket", "description": "WebSocket komunikace"},
     ]
 )
 
@@ -38,7 +37,6 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(router_ws)
 app.include_router(router_kuka)
-
 
 # Přidání složky se statickými soubory
 app.mount("/static", StaticFiles(directory="static"), name="static")

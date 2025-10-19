@@ -13,6 +13,14 @@ NOTE_MAP: dict[int, Tuple[str, str]] = {
     # ...
 }
 
+SONG_MAP: dict[int, Tuple[str, str]] = {
+    # příklady – doplň podle KRL proměnných na robotu
+    1: ("PySong1Fb", "PySong1"),
+    2: ("PySong2Fb", "PySong2"),
+    3: ("PySong3Fb", "PySong3"),
+    # ...
+}
+
 ENCODING = "UTF-8"
 PY2 = sys.version_info[0] == 2
 
@@ -187,3 +195,26 @@ class KUKAHandler:
       self.write(cmd_var, False)
       self.write(poll_var_fb, False)
       return True
+    
+    def play_song(self, song_number, timeout=30.0, period=0.2) -> bool:
+        if song_number not in SONG_MAP:
+            raise ValueError(f"Unknown song number: {song_number}")
+        
+        poll_var_fb, cmd_var = SONG_MAP[song_number]
+        
+        if not self.is_connected():
+            return False
+        self.write(cmd_var, True)
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            if self.read_bool(poll_var_fb):
+                break
+            time.sleep(period)
+        else:
+            self.write(cmd_var, False)
+            return False
+        
+        # reset flags
+        self.write(cmd_var, False)
+        self.write(poll_var_fb, False)
+        return True
