@@ -3,6 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState } from 'react';
 
+import { apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function MainScreen() {
@@ -17,13 +18,26 @@ export default function MainScreen() {
     { id: 3, label: 'Těžká' },
   ];
 
-  const onPressSong = (btn: { id: number; label: string }) => {
+  const onPressSong = async (btn: { id: number; label: string }) => {
     if (!canControl) {
       return;
     }
     const ts = Date.now();
     const payload = { type: 'song_button', button: btn.id, label: btn.label, ts };
     send(payload);
+
+    try {
+      const result = await apiPost('', {
+        songId: btn.id,
+        songLabel: btn.label,
+        timestamp: ts,
+      });
+      console.log('API response:', result);
+    } catch (err) {
+      console.error('API error:', err);
+    }
+
+
     setLastPressed(`${btn.label} pressed`);
     setLastPayload(payload);
   };
