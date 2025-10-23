@@ -96,6 +96,14 @@ async def ws_endpoint(
                 await ws.send_text('{"type":"pong"}')
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
+            
+            #if data.type == "note_on":
+
+            #if data.type == "note_off":
+
+            #[WS][127.0.0.1] Přijatý raw: {"type":"note_on","note":8,"vel":100,"ts":1761211930005}
+            #[WS][127.0.0.1] Přijatý raw: {"type":"note_off","note":8,"ts":1761211930539,"duration":534}
+          
 
             payload = {
                 "type": data.type,

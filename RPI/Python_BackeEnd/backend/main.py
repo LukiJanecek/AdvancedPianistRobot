@@ -2,13 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from services.kuka_service import KUKAHandler
 from api.endpoints_api import router
 from api.ws_api import router_ws
 from api.kuka_api import router_kuka
 
-from core.kuka_config import settings
-robot = KUKAHandler()
+from core.Kuka_robot_config import robot
 
 app = FastAPI(
     title="Klavirista API",
@@ -43,12 +41,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.on_event("startup")
-def _autoconnect():
+async def _autoconnect():
     try:
-        robot.open(settings.ROBOT_IP, settings.ROBOT_PORT)
+        if (await robot.KUKA_Open()):
+            print(f"[KUKA] Connected to robot at {robot.ipAddress}:{robot.port}")
+        else:
+            print(f"[KUKA] Connect to robot failed")
     except Exception as e:
         # necháme připojení i tak volitelné přes /connect
-        print(f"[KUKA] Autoconnect failed: {e}")
+        print(f"[KUKA] Connect failed: {e}")
+
 
 @app.get("/")
 def read_root():
