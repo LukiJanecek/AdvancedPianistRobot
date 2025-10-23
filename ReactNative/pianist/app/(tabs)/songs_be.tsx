@@ -27,16 +27,14 @@ export default function MainScreen() {
     send(payload);
 
     try {
-      const result = await apiPost('', {
-        songId: btn.id,
-        songLabel: btn.label,
-        timestamp: ts,
+      const result = await apiPost('/robot/playSong', {
+        songId: btn.id 
       });
       console.log('API response:', result);
-    } catch (err) {
+    } 
+    catch (err) {
       console.error('API error:', err);
     }
-
 
     setLastPressed(`${btn.label} pressed`);
     setLastPayload(payload);
