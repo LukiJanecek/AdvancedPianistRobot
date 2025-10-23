@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8081/api/song"
+const BASE_URL = "http://localhost:8081"
 
 export async function apiGet(path : string) {
   const res = await fetch(`${BASE_URL}${path}`, { credentials: 'include' });
