@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
 
-import { apiPost } from '@/utils/api';
+import { apiGet, apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
@@ -21,8 +21,7 @@ export default function MainScreen() {
       ? "Robot connected"
       : "Robot disconnected";
 
-  
-
+  // keys
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
@@ -31,7 +30,6 @@ export default function MainScreen() {
   const whiteKeyDownTs = useRef<{ [key: number]: number }>({});
   const blackKeyDownTs = useRef<{ [key: number]: number }>({});
 
-    // --- Nové: stav pro zmáčknuté klávesy podle příchozích zpráv
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
@@ -53,10 +51,11 @@ export default function MainScreen() {
       }
     }
 
+    // shadowing
     const startShadowing = async () => {
       try {
         const result = await apiPost("/robot/startShadowing", {});
-        console.log("✅ Shadowing started:", result);
+        console.log("Shadowing started:", result);
       } catch (err: any) {
         console.error("Start shadowing failed:", err.message);
       }
@@ -65,7 +64,7 @@ export default function MainScreen() {
     const stopShadowing = async () => {
       try {
         const result = await apiPost("/robot/stopShadowing", {});
-        console.log("🛑 Shadowing stopped:", result);
+        console.log("Shadowing stopped:", result);
       } catch (err: any) {
         console.error("Stop shadowing failed:", err.message);
       }
@@ -76,14 +75,14 @@ export default function MainScreen() {
     return () => {
       stopShadowing();
     };
-    
+
   }, [events]);
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
   const WRAP_MARGIN = 3;
   const BLACK_BASE_LEFT = WHITE_W - BLACK_W / 2; // střed nad hranou bílé (≈44)
-  const BLACK_TUNE_RIGHT = 20;                    // tvé „posunout doprava o ~20“
+  const BLACK_TUNE_RIGHT = 20;                    
   //const BLACK_LEFT = BLACK_BASE_LEFT + BLACK_TUNE_RIGHT;
   const BLACK_LEFT = WHITE_W - BLACK_W / 2 + WRAP_MARGIN;
 

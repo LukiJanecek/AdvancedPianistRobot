@@ -1,5 +1,6 @@
 import useSWR from "swr";
 import { SERVER_WS } from "../constants/config"; 
+import { apiGet, apiPost } from "../utils/api";
 
 type RobotStatusRaw = {
   connected: boolean;
@@ -15,12 +16,10 @@ export type RobotStatus = {
   error?: string | null;
 };
 
-const fetcher = async (url: string): Promise<RobotStatus> => {
+const fetcher = async (path: string): Promise<RobotStatus> => {
   const t0 = Date.now();
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const raw: RobotStatusRaw = await res.json();
+    const raw: RobotStatusRaw = await apiGet(path);
     return {
       online: !!raw.connected,
       ip: raw.ip,
@@ -39,12 +38,12 @@ const fetcher = async (url: string): Promise<RobotStatus> => {
 
 export function useRobotConnectionPoller() {
   const { data, error, isLoading } = useSWR<RobotStatus>(
-    `${SERVER_WS}/robot/status`,
+    "/robot/status",
     fetcher,
     {
-      refreshInterval: 2000,     // ping každé 2 s
-      revalidateOnFocus: true,   // obnov po návratu do appky
-      shouldRetryOnError: true,  // retry při chybě
+      refreshInterval: 2000,    
+      revalidateOnFocus: true,   
+      shouldRetryOnError: true,  
     }
   );
 

@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useEffect } from 'react';
 
-import { apiPost } from '@/utils/api';
+import { apiGet, apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
