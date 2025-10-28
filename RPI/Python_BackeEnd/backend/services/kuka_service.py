@@ -6,16 +6,7 @@ import struct
 import random
 import socket
 import threading, time, sys
-
 import asyncio
-
-
-NOTE_MAP: dict[int, Tuple[str, str]] = {
-    60: ("PyTone60Fb", "PyTone60"),
-    61: ("PyTone61Fb", "PyTone61"),
-    62: ("PyTone62Fb", "PyTone62"),
-    # ...
-}
 
 SONG_MAP: dict[int, Tuple[str, str]] = {
     1: ("PyREGGAEFb", "PyREGGAE"),
@@ -61,7 +52,7 @@ class openshowvar(object):
             self.retry += 1
             if self.retry != self.retry_limit:
                 print('read error, ' + str(self.retry) + ' - try')
-                self.read(var)
+                return self.read(var)
             else:
                 print('read error, socket closed')
                 self.retry = 0
@@ -144,12 +135,12 @@ class openshowvar(object):
 
 class KUKA_Handler:
     def __init__(self, ipAddress, port):
+        self.lock = asyncio.Lock()
         self.connected = False
         self.ipAddress = ipAddress
         self.port = port
         self.client = None
-        self.lock = asyncio.Lock()
-
+        
     async def KUKA_Open(self):
         async with self.lock:
             if self.connected == False:
@@ -166,13 +157,14 @@ class KUKA_Handler:
                     return False
             else:
                 print('Connection is ready!')
+                return True
     
     async def KUKA_IsConnected(self):
         async with self.lock:
             return self.connected
 
     async def KUKA_ReadVar(self, var):
-        if self.connected:
+        if await self.KUKA_IsConnected():
             res = self.client.read(var, debug=False)
             if res == b'TRUE':
                 return True
@@ -182,72 +174,70 @@ class KUKA_Handler:
                 return res
         else:
             return False
-
+        
+        
     async def KUKA_WriteVar(self, var, value):
-        if self.connected:
+        if await self.KUKA_IsConnected():
             self.client.KUKA_WriteVar(var, str(value))
             return True
         else:
             return False
 
     async def KUKA_Close(self):
-        with self.lock:
-            if self.connected == True:
+        async with self.lock:
+            if self.connected:
                 self.client.close()
                 self.connected = False
                 return True
-
             else:
                 return False
 
     async def go_to_set_of_notes(self, poll_var_fb, cmd_var, timeout=10.0, period=0.2) -> bool:
-        if not self.KUKA_IsConnected():
+        if not await self.KUKA_IsConnected():
             return False
-        self.KUKA_WriteVar(cmd_var, True)
+        await self.KUKA_WriteVar(cmd_var, True)
+
         t0 = time.time()
         while time.time() - t0 < timeout:
-            if self.KUKA_ReadVar(poll_var_fb):
+            if await self.KUKA_ReadVar(poll_var_fb):
                 break
-            asyncio.sleep(period)
+            await asyncio.sleep(period)
         else:
-            self.KUKA_WriteVar(cmd_var, False)
+            await self.KUKA_WriteVar(cmd_var, False)
             return False
         # reset flags
-        self.KUKA_WriteVar(cmd_var, False)
-        self.KUKA_WriteVar(poll_var_fb, False)
+        await self.KUKA_WriteVar(cmd_var, False)
+        await self.KUKA_WriteVar(poll_var_fb, False)
         return True
 
     async def play_note(self, note_number, duration=10000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
-        if not self.KUKA_IsConnected():
+        if not await self.KUKA_IsConnected():
             return False
         
         t0 = time.time()
         ok = False
-        
         try:
-            # Příprava a start
-            self.KUKA_WriteVar("PyNoteNumber", int(note_number))
-            self.KUKA_WriteVar("PyNoteDuration", int(duration))
-            self.KUKA_WriteVar("PyGoToNote", True)
+            await self.KUKA_WriteVar("PyNoteNumber", int(note_number))
+            await self.KUKA_WriteVar("PyNoteDuration", int(duration))
+            await self.KUKA_WriteVar("PyGoToNote", True)
 
-            # Čekání na potvrzení z KRL
             while time.time() - t0 < timeout:
                 try:
-                    if self.KUKA_ReadVar(ack_var):
+                    if await self.KUKA_ReadVar(ack_var):
                         ok = True
                         break
                 except Exception:
                     pass
-                asyncio.sleep(period)
+                await asyncio.sleep(period)
             return ok
         except Exception:
             return False
         finally:
-            try: self.KUKA_WriteVar("PyGoToNote", False)
+            try: await self.KUKA_WriteVar("PyGoToNote", False)
             except Exception: pass
-            try: self.KUKA_WriteVar("PyNoteNumber", 0)
+            try: await self.KUKA_WriteVar("PyNoteNumber", 0)
             except Exception: pass
-            try: self.KUKA_WriteVar("PyNoteNumberFb", False)
+            try: await self.KUKA_WriteVar("PyNoteNumberFb", False)
             except Exception: pass
 
 
@@ -255,57 +245,55 @@ class KUKA_Handler:
         if song_number not in SONG_MAP:
             raise ValueError(f"Unknown song number: {song_number}")
         poll_var_fb, cmd_var = SONG_MAP[song_number]
-        if not self.KUKA_IsConnected():
+
+        if not await self.KUKA_IsConnected():
             return False
 
-        self.KUKA_WriteVar(cmd_var, True)
+        await self.KUKA_WriteVar(cmd_var, True)
         t0 = time.time()
         while time.time() - t0 < timeout:
-            if self.KUKA_ReadVar(poll_var_fb):
+            if await self.KUKA_ReadVar(poll_var_fb):
                 break
-            asyncio.sleep(period)
+            await asyncio.sleep(period)
         else:
-            self.KUKA_WriteVar(cmd_var, False)
+            await self.KUKA_WriteVar(cmd_var, False)
             return False
 
-        self.KUKA_WriteVar(cmd_var, False)
-        self.KUKA_WriteVar(poll_var_fb, False)
+        await self.KUKA_WriteVar(cmd_var, False)
+        await self.KUKA_WriteVar(poll_var_fb, False)
         return True
 
 
-    async def shadow_mode(self, timeout=30.0, period=0.2) -> bool:
-        if not self.KUKA_IsConnected():
+    async def start_shadow_mode(self, timeout=30.0, period=0.2) -> bool:
+        if not await self.KUKA_IsConnected():
             return False
         
-        self.KUKA_WriteVar("PyShadow", True)
+        await self.KUKA_WriteVar("PyShadow", True)
         t0 = time.time()
         while time.time() - t0 < timeout:
-            if self.KUKA_ReadVar("PyShadowFb"):
+            if await self.KUKA_ReadVar("PyShadowFb") == True:
                 break
-            asyncio.sleep(period)
+            await asyncio.sleep(period)
         else:
-            self.KUKA_WriteVar("PyShadow", False)
+            await self.KUKA_WriteVar("PyShadow", False)
+            await self.KUKA_WriteVar("PyShadowFb", False)
             return False
-
-        self.KUKA_WriteVar("PyShadow", False)
-        self.KUKA_WriteVar("PyShadowFb", False)
         return True
     
-    async def songs_mode(self, timeout=30.0, period=0.2) -> bool:
-        if not self.KUKA_IsConnected():
+
+    async def stop_shadow_mode(self, timeout=30.0, period=0.2) -> bool:
+        if not await self.KUKA_IsConnected():
             return False
         
-        self.KUKA_WriteVar("PySong", True)
+        await self.KUKA_WriteVar("PyShadow", False)
         t0 = time.time()
         while time.time() - t0 < timeout:
-            if self.KUKA_ReadVar("PySongFb"):
+            if await self.KUKA_ReadVar("PyShadowFb") != True:
                 break
-            asyncio.sleep(period)
+            await asyncio.sleep(period)
         else:
-            self.KUKA_WriteVar("PySong", False)
+            await self.KUKA_WriteVar("PyShadow", False)
+            await self.KUKA_WriteVar("PyShadowFb", False)
             return False
-
-        self.KUKA_WriteVar("PySong", False)
-        self.KUKA_WriteVar("PySongFb", False)
         return True
 
