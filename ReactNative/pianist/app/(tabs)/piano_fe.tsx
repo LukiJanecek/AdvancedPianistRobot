@@ -1,14 +1,25 @@
-import { StyleSheet, ScrollView, Pressable, View } from 'react-native';
+import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
 
+import { apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
-
+import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 export default function MainScreen() {
 
+  // websocket
   const { send, presence, role, state, canControl, events } = useWebSocket(Date.now().toString());
   
+  // robot connection status
+  const { status, isLoading } = useRobotConnectionPoller();
+  const dotColor = status.online ? "#22C55E" : "#EF4444";
+  const label = isLoading
+    ? "Checking robot..."
+    : status.online
+      ? "Robot connected"
+      : "Robot disconnected";
+
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
@@ -39,7 +50,6 @@ useEffect(() => {
     }
   }
 }, [events]);
-
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
@@ -108,6 +118,28 @@ useEffect(() => {
           Room už má performera — Jsi watcher (ovládání vypnuto).
         </ThemedText>
       )}
+
+      <View style={{ gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{
+            width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
+          }}/>
+          <Text style={{ fontSize: 16, fontWeight: "600" }}>{label}</Text>
+          {!isLoading && status.online && status.latency_ms != null && (
+            <Text style={{ marginLeft: 8 }}>({status.latency_ms} ms)</Text>
+          )}
+          {!isLoading && !status.online && status.error && (
+            <Text style={{ marginLeft: 8, opacity: 0.7 }}>[{status.error}]</Text>
+          )}
+        </View>
+
+        {!isLoading && (
+          <Text style={{ opacity: 0.8 }}>
+            Target: {status.ip ?? "unknown"}{status.port ? `:${status.port}` : ""}
+          </Text>
+        )}
+      </View>
+
       <View style={styles.keysWrap}>
         <ScrollView 
           horizontal 
