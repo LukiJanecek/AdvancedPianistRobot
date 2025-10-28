@@ -32,6 +32,7 @@ app.add_middleware(
     allow_methods=["*"],            # povol všechny metody (GET, POST, atd.)
     allow_headers=["*"],            # povol všechny hlavičky
 )
+
 app.include_router(router)
 app.include_router(router_ws)
 app.include_router(router_kuka)

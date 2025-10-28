@@ -5,9 +5,13 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
 
+import asyncio
+
 router_ws = APIRouter()
 
-API_TOKEN = "demo-token"   # natvrdo
+from core.Kuka_robot_config import robot
+
+API_TOKEN = "demo-token"
 VALID_ROLES = {"watcher", "performer"}
 
 @router_ws.websocket("/ws")
@@ -96,10 +100,24 @@ async def ws_endpoint(
                 await ws.send_text('{"type":"pong"}')
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
-            
-            #if data.type == "note_on":
 
-            #if data.type == "note_off":
+            if data.type == "shadow_mode":
+                print(f"[WS][{client_ip}] shawd_mode command received")
+                asyncio.create_task(robot.shadow_mode())
+            
+            if data.type == "songs_mode":
+                print(f"[WS][{client_ip}] songs_mode command received")
+                asyncio.create_task(robot.songs_mode())
+            
+            if data.type == "note_on":
+                print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
+                # Zde můžete přidat další logiku pro note_on
+                asyncio.create_task(robot.play_note(data.note))
+
+            if data.type == "note_off":
+                print(f"[WS][{client_ip}] Note OFF - note:{data.note} duration:{data.duration}ms")
+                # Zde můžete přidat další logiku pro note_off
+                asyncio.create_task(robot.play_note(data.note, data.duration))
 
             #[WS][127.0.0.1] Přijatý raw: {"type":"note_on","note":8,"vel":100,"ts":1761211930005}
             #[WS][127.0.0.1] Přijatý raw: {"type":"note_off","note":8,"ts":1761211930539,"duration":534}
@@ -112,6 +130,7 @@ async def ws_endpoint(
                 "sustain": getattr(data, "sustain", None),
                 "ts": getattr(data, "ts", None),
                 "duration": getattr(data, "duration", None),
+                "mode": getattr(data, "mode", None),
                 "from_id": active_conn.client_id,
                 "device": active_conn.device,
                 "role": active_conn.role,
