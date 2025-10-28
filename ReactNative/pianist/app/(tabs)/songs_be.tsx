@@ -1,7 +1,7 @@
 import { StyleSheet, Pressable, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -51,6 +51,33 @@ export default function MainScreen() {
     setLastPressed(`${btn.label} pressed`);
     setLastPayload(payload);
   };
+
+  useEffect(() => {
+    const startShadowing = async () => {
+      try {
+        const result = await apiPost("/robot/startShadowing", {});
+        console.log("✅ Shadowing started:", result);
+      } catch (err: any) {
+        console.error("Start shadowing failed:", err.message);
+      }
+    };
+
+    const stopShadowing = async () => {
+      try {
+        const result = await apiPost("/robot/stopShadowing", {});
+        console.log("🛑 Shadowing stopped:", result);
+      } catch (err: any) {
+        console.error("Stop shadowing failed:", err.message);
+      }
+    };
+
+    startShadowing();
+
+    return () => {
+      stopShadowing();
+    };
+    
+  }, []);
 
   return (
     <ThemedView style={styles.container}>

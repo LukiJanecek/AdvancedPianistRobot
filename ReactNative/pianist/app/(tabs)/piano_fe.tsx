@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
+
 export default function MainScreen() {
 
   // websocket
@@ -20,6 +21,8 @@ export default function MainScreen() {
       ? "Robot connected"
       : "Robot disconnected";
 
+  
+
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
@@ -31,25 +34,50 @@ export default function MainScreen() {
     // --- Nové: stav pro zmáčknuté klávesy podle příchozích zpráv
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
 
-useEffect(() => {
-  if (!events.length) return;
-  const last = events[events.length - 1];
-  if (
-    (last.type === "note_on" || last.type === "note_off") &&
-    typeof last.note !== "undefined"
-  ) {
-    if (last.type === "note_on") {
-      setPressedKeys(prev => ({ ...prev, [last.note]: true }));
+  useEffect(() => {
+    if (!events.length) return;
+    const last = events[events.length - 1];
+    if (
+      (last.type === "note_on" || last.type === "note_off") &&
+      typeof last.note !== "undefined"
+    ) {
+      if (last.type === "note_on") {
+        setPressedKeys(prev => ({ ...prev, [last.note]: true }));
+      }
+      if (last.type === "note_off") {
+        setPressedKeys(prev => {
+          const updated = { ...prev };
+          delete updated[last.note];
+          return updated;
+        });
+      }
     }
-    if (last.type === "note_off") {
-      setPressedKeys(prev => {
-        const updated = { ...prev };
-        delete updated[last.note];
-        return updated;
-      });
-    }
-  }
-}, [events]);
+
+    const startShadowing = async () => {
+      try {
+        const result = await apiPost("/robot/startShadowing", {});
+        console.log("✅ Shadowing started:", result);
+      } catch (err: any) {
+        console.error("Start shadowing failed:", err.message);
+      }
+    };
+
+    const stopShadowing = async () => {
+      try {
+        const result = await apiPost("/robot/stopShadowing", {});
+        console.log("🛑 Shadowing stopped:", result);
+      } catch (err: any) {
+        console.error("Stop shadowing failed:", err.message);
+      }
+    };
+
+    startShadowing();
+
+    return () => {
+      stopShadowing();
+    };
+    
+  }, [events]);
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
