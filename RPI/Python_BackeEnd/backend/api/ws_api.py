@@ -101,14 +101,6 @@ async def ws_endpoint(
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
 
-            if data.type == "shadow_mode":
-                print(f"[WS][{client_ip}] shawd_mode command received")
-                asyncio.create_task(robot.shadow_mode())
-            
-            if data.type == "songs_mode":
-                print(f"[WS][{client_ip}] songs_mode command received")
-                asyncio.create_task(robot.songs_mode())
-            
             if data.type == "note_on":
                 print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
                 # Zde můžete přidat další logiku pro note_on

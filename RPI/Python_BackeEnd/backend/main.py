@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import asyncio
 
 from api.endpoints_api import router
 from api.ws_api import router_ws
@@ -43,19 +44,23 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
 async def _autoconnect():
-    try:
-        if (await robot.KUKA_Open()):
-            print(f"[KUKA] Connected to robot at {robot.ipAddress}:{robot.port}")
-        else:
-            print(f"[KUKA] Connect to robot failed")
-    except Exception as e:
-        # necháme připojení i tak volitelné přes /connect
-        print(f"[KUKA] Connect failed: {e}")
+    async def _connect():
+        try:
+            print(f"[KUKA] Attempting to connect to robot at {robot.ipAddress}:{robot.port}...")
+            ok = await robot.KUKA_Open()
+            if ok:
+                print(f"[KUKA] Connected to robot at {robot.ipAddress}:{robot.port}")
+            else:
+                print("[KUKA] Connect to robot failed")
+        except Exception as e:
+            print(f"[KUKA] Connect failed: {e}")
+
+    asyncio.create_task(_connect())
 
 
 @app.get("/")
 def read_root():
-    return {"message": "DrinkMaker backend běží!"}
+    return {"message": "DrinkMaker backend běží!!! (Pro přístup k dokumentaci použij /docs)"}
 
 @app.get("/favicon.ico")
 async def favicon():
