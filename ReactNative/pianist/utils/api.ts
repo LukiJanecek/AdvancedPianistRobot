@@ -17,7 +17,7 @@ export async function apiPost(path : string, body : any) {
 
 async function parseOrThrow(res : Response) {
   const text = await res.text();
-  if (!res.ok) {t
+  if (!res.ok) {
     try {
       const j = JSON.parse(text);
       throw new Error(j.message || JSON.stringify(j));
