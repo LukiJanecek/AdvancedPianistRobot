@@ -1,0 +1,47 @@
+&ACCESS RVO
+&COMMENT USER specified PLC program
+DEF  GateStop ( )
+;FOLD DECLARATIONS
+  ;FOLD USER DECL
+  ; Please insert user defined declarations
+DECL STATE_T STAT
+DECL MODUS_T MODE
+  ;ENDFOLD (USER DECL)
+;ENDFOLD (DECLARATIONS)
+;FOLD INI
+  ;FOLD USER INIT
+  ; Please insert user defined initialization commands
+
+  ;ENDFOLD (USER INIT)
+;ENDFOLD (INI)
+
+LOOP
+;FOLD USER PLC
+
+MODE=#SYNC
+;select program A6()
+;to start the program the START-button or
+;an external start-signal is needed
+IF $IN[8]==TRUE THEN
+CWRITE($CMD,STAT,MODE,"RUN/R1/A6()")
+$FLAG[1]=FALSE
+ENDIF
+;stop program A6()
+IF $FLAG[2]==TRUE THEN
+CWRITE($CMD,STAT,MODE,"STOP 1")
+$FLAG[2]=FALSE
+ENDIF
+;cancel program A6()
+IF $FLAG[3]==TRUE THEN
+CWRITE($CMD,STAT,MODE,"CANCEL 1")
+$FLAG[3]=FALSE
+ENDIF
+;ENDFOLD (USER PLC)
+ENDLOOP
+;FOLD ;%{H};
+END
+;ENDFOLD
+;FOLD USER SUBROUTINE
+;Integrate your user defined subroutines
+
+;ENDFOLD (USER SUBROUTINE)
