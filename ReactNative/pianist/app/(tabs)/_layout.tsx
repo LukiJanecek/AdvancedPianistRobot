@@ -6,7 +6,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export const unstable_settings = { initialRouteName: '(tabs)' };
+export const unstable_settings = { initialRouteName: 'songs_be' };
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
