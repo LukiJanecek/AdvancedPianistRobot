@@ -1,0 +1,1 @@
+python C:\pythonProject\V7\main.py

@@ -144,19 +144,20 @@ class KUKA_Handler:
     async def KUKA_Open(self):
         async with self.lock:
             if self.connected == False:
+                print(f"[KUKA] Attempting to connect to robot at {self.ipAddress}:{self.port}...")
                 self.client = openshowvar(self.ipAddress, self.port)
                 res = self.client.can_connect
 
                 if res == True:
-                    print('Connection is established!')
+                    print('[KUKA] Connection is established!')
                     self.connected = True
                     return True
                 else:
-                    print('Connection is broken! Check configuration or restart C3_Server at KUKA side.')
+                    print('[KUKA] Connection is broken! Check configuration or restart C3_Server at KUKA side.')
                     self.connected = False
                     return False
             else:
-                print('Connection is ready!')
+                print('[KUKA] Connection is ready!')
                 return True
     
     async def KUKA_IsConnected(self):
@@ -297,3 +298,39 @@ class KUKA_Handler:
             return False
         return True
 
+    # Asynchronní smyčka pro čtení dat z Kuky
+    async def key_listener_loop(self):
+        if not await self.KUKA_IsConnected():
+            print("[KUKA] Not connected, cannot start key listener loop")
+            return
+
+        print("[KUKA] Starting key listener loop...")
+        while True:
+            try:
+                if await self.KUKA_IsConnected():
+                    data = await self.KUKA_ReadVar("PyKey")
+                    if data:
+                        print(f"[KUKA] Hodnota key: {data}")
+            except Exception as e:
+                print(f"[KUKA] Chyba při čtení: {e}")
+
+            await asyncio.sleep(0.12)
+
+    # Asynchronní smyčka pro připojení k robotu
+    async def autoconnecting_loop(self):
+        print("[KUKA] Starting autoconnecting loop...")
+        while True:
+            try:
+                if not await self.KUKA_IsConnected():
+                    ok = await self.KUKA_Open()
+                    if ok:
+                        print(f"[KUKA] Connected to robot at {self.ipAddress}:{self.port}")
+                    else:
+                        print("[KUKA] Connect to robot failed.. retrying in 10s")
+                        await asyncio.sleep(10)
+                        continue
+                    
+                await asyncio.sleep(10)
+
+            except Exception as e:
+                print(f"[KUKA] Connect failed: {e}")

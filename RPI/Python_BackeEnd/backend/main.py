@@ -43,19 +43,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.on_event("startup")
-async def _autoconnect():
-    async def _connect():
-        try:
-            print(f"[KUKA] Attempting to connect to robot at {robot.ipAddress}:{robot.port}...")
-            ok = await robot.KUKA_Open()
-            if ok:
-                print(f"[KUKA] Connected to robot at {robot.ipAddress}:{robot.port}")
-            else:
-                print("[KUKA] Connect to robot failed")
-        except Exception as e:
-            print(f"[KUKA] Connect failed: {e}")
-
-    asyncio.create_task(_connect())
+async def startup_event():
+    asyncio.create_task(robot.autoconnecting_loop())
+    asyncio.create_task(robot.key_listener_loop())
 
 
 @app.get("/")

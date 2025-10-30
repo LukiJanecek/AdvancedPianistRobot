@@ -1,0 +1,14 @@
+táááákže:
+
+
+úprava dotazníku:
+- po kliknuti na OK se zkontroluje, jestli je ve všech kategoriích zaznačena nějaká možnost. POkud ne, objeví se popup, kde na to upozorní uživatele.
+- dale pokud uzivatel zadal odpoveď na poslední otázku jako ANO, tak se ještě přes okno qustionaire otevře okno getemail.
+- Pokud je odpověď na poslední otázku ne, vyskočí popup, jestli opravdu chcete nedostavat novinky a pokud dá ne, uloží se odpovědi do csv souboru (doporučuju knihovnu pandas)
+- pokud se zobrazi okno pro email a uzivatel okno zavre, opet vyskoci popup, jeslti opravdu chce odejit a pokud dá, že jo, stejně se uloží údaje z quastionaire
+- upravit text na okně getEmail, ať sedí v kontextu toho celého
+- upravit velikost textu dotazníku
+- zefektineni kodu (ale neni potreba, hlavne ať funguje)
+
+V csv budou ulozeny jednotlive odpovedi po radcich -> jeden řádek jedna odpoveď:
+        datum a čas;email nebo 'Není email';odpověď na otázku 1; odpoveď na otázku 2; odpoveď na otázku 3
