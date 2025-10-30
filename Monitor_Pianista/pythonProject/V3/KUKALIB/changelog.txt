@@ -1,0 +1,32 @@
+#
+# Changelog file for kukalib and kukaconn libs
+#
+
+# -------------------------- kukaconn.py --------------------------
+
+### 24. 5. 2023
+* File created
+* Program code is using arrays now to define X, Y, Z coords
+* Modified KUKA_SendXYZ - accepting relative or absolute positions now
++ Added absolute and relative positioning of KUKA arm
++ Added KUKA_GetActualPos(self) to get actual internal coords used in connector
++ Added is_valid_ipv4(ip) to check validity of IPv4 address
++ Added ABC to the system of coordinates
+
+# ------------------------ kukavarproxy.py ------------------------
+
+### 24. 5. 2023
+* Modification of base code
+	->  self.retry = 0
+	->	self.retry_limit = 5
+	->	read(self, var, debug=True) :: Added try - except structure with self-recall
+
+### 25. 5. 2023
+* Bug causing infinite loop in a read() was repaired
+
+# ---------------------------- main.py ----------------------------
+
+### 6. 6. 2023
+* Modification of DEMO code
+	->  Created a DEMO routine in Y axis for both arms
+	->  Created a DEMO routine in X axis for both robots based

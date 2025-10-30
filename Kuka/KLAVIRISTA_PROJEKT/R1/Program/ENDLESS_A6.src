@@ -1,0 +1,208 @@
+&ACCESS RVO
+&REL 3
+DEF ENDLESS_A6( )
+
+;FOLD INI
+CONTINUE
+IF NOT $ON_PATH THEN
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+ENDIF
+;ENDFOLD (INI)
+
+;FOLD CHECK DAT-FILE GENERATION NUMBER
+  IF APP_GENNUMBER <> 43984 THEN
+    LOOP
+      MsgQuit("InconsistenceSRCandDAT",,,,1)
+      HALT
+    ENDLOOP
+  ENDIF
+;ENDFOLD
+
+
+;fold Jobinfo
+;Job information: My_Job
+;Product : 3.1.0.28784
+;Date: 2021-04-09-12_48
+;Project name: My_Project
+;Author: My Author
+;Company: My Company
+;Division: My Division
+;Comment: My Comment
+;endfold
+
+;fold Cellmap
+; KR 3 R540
+; Dress package KR3 R540 A46
+;endfold
+;fold Axes definitions
+; Axis1 [-170 170] Rot [deg] (KR 3 R540 : A1)
+; Axis2 [-170 50] Rot [deg] (KR 3 R540 : A2)
+; Axis3 [-110 155] Rot [deg] (KR 3 R540 : A3)
+; Axis4 [-175 175] Rot [deg] (KR 3 R540 : A4)
+; Axis5 [-120 120] Rot [deg] (KR 3 R540 : A5)
+; Axis6 [-350 350] Rot [deg] (KR 3 R540 : A6)
+;endfold
+;fold RobRoot, Tools and Bases used
+; $ROBROOT = {x 0,y 0,z 0,a 0,b 0,c 0}
+; TOOL_DATA[1] = {x 0,y 0,z 0,a 0,b 0,c 0}
+;endfold
+;fold HomePositions
+XHOME={A1 0,A2 -90,A3 90,A4 0,A5 0,A6 0,E1 0,E2 0,E3 0,E4 0,E5 0,E6 0}
+$H_POS=XHOME
+;endfold
+;FOLD PTP HOME  Vel=100 % DEFAULT;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=DEFAULT; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PDEFAULT
+FDAT_ACT=FDEFAULT
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+$H_POS=XHOME
+PTP XHOME 
+;ENDFOLD
+;FOLD PTP P1 CONT Vel= 100 % PDATP1 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP1
+FDAT_ACT=FP1
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP1 C_DIS
+;ENDFOLD
+$TIMER_STOP[3]=FALSE
+
+;FOLD WAIT FOR ( TIMER 3 '500' )  ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.logics.waitfor; Kuka.WaitLogicTerm1=None; Kuka.WaitForNot1=False; Kuka.WaitLogicOp2.Term1=None; Kuka.WaitForNot2.Term1=False; Kuka.WaitForSysVar2.Term1=TIMER; Kuka.WaitForIndex2.Term1=3; Kuka.WaitForIndexName2.Term1=500; Kuka.WaitForTermNumbers=1; Kuka.WaitForOpNumbers=2; Kuka.WaitForCont=False
+;ENDFOLD
+WAIT FOR  ( $TIMER_FLAG[3] )
+;ENDFOLD
+Counter = Counter +4
+Boolean = FALSE
+
+
+LOOP
+;FOLD PTP P2 CONT Vel= 100 % PDATP2 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP2; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP2
+FDAT_ACT=FP2
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP2 C_DIS
+;ENDFOLD
+;FOLD PTP P3 CONT Vel= 100 % PDATP3 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P3; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP3; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP3
+FDAT_ACT=FP3
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP3 C_DIS
+;ENDFOLD
+;FOLD PTP P4 CONT Vel= 100 % PDATP4 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P4; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP4; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP4
+FDAT_ACT=FP4
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP4 C_DIS
+;ENDFOLD
+ENDLOOP
+
+;FOLD PTP P2 CONT Vel= 100 % PDATP2 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP2; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP2
+FDAT_ACT=FP2
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP2 C_DIS
+;ENDFOLD
+;FOLD PTP P3 CONT Vel= 100 % PDATP3 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P3; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP3; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP3
+FDAT_ACT=FP3
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP3 C_DIS
+;ENDFOLD
+;FOLD PTP P4 CONT Vel= 100 % PDATP4 Tool[1] Base[0]   ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P4; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDATP4; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PPDATP4
+FDAT_ACT=FP4
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+PTP XP4 C_DIS
+;ENDFOLD
+Toggle(Boolean)
+BiggerNumber=MaxNumber(10,5)
+
+;FOLD PTP HOME  Vel=100 % DEFAULT;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=DEFAULT; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PDEFAULT
+FDAT_ACT=FDEFAULT
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+$H_POS=XHOME
+PTP XHOME 
+$TIMER_STOP[3]=TRUE
+$TIMER[3]=0
+;ENDFOLD
+END
+
+GLOBAL DEF Toggle (A:IN)
+BOOL A
+
+IF A THEN
+A = FALSE
+ELSE
+A=TRUE
+ENDIF
+END
+
+GLOBAL DEFFCT INT MaxNumber (A:IN,B:IN)
+INT A
+INT B
+
+IF A>B THEN
+RETURN A
+ENDIF
+
+IF B>A THEN
+RETURN B
+ELSE
+RETURN A
+ENDIF
+
+ENDFCT

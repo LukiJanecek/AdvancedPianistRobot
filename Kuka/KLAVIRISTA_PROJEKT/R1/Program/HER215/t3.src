@@ -1,0 +1,6 @@
+&ACCESS RVO
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEFFCT BOOL t3( )
+
+ENDFCT

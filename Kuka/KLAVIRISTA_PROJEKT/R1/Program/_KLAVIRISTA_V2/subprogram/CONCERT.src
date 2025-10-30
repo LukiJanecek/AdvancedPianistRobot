@@ -1,0 +1,288 @@
+&ACCESS RVO
+&REL 519
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2\subprogram
+DEF CONCERT( )
+;FOLD INI
+CONTINUE
+IF NOT $ON_PATH THEN
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+ENDIF
+  ;ENDFOLD (INI)
+;FOLD PTP HOME1 Vel=8 % PDAT5 ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT5; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT5
+FDAT_ACT = FHOME1
+BAS(#PTP_PARAMS, 8)
+SET_CD_PARAMS (0)
+PTP XHOME1
+;ENDFOLD
+
+;FOLD PTP HOME1 Vel=8 % PDAT5 ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT5; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT5
+FDAT_ACT = FHOME1
+BAS(#PTP_PARAMS, 8)
+SET_CD_PARAMS (0)
+PTP XHOME1
+;ENDFOLD
+
+END
+GLOBAL DEF PLAY(KEY:IN, TIME:IN, HOLD:IN)
+;FOLD Variables INI
+REAL KEY 
+INT TIME
+INT HOLD
+INT PRESS
+INT SPEED
+REAL SHIFT 
+;ENDFOLD
+PRESS = 10
+SHIFT = 23.3
+SPEED = 17
+$TIMER_STOP[1]=FALSE
+;FOLD STATUS TREATMENT
+KEY = KEY+7
+IF KEY < 11 THEN
+XP1 = START4
+ELSE
+XP1 = START5 
+ENDIF
+;IF KEY <= 8 THEN
+;XP1 = START1
+;ENDIF
+;IF (KEY > 8) AND (KEY < 11) THEN
+;XP1 = START2 
+;ENDIF
+;IF KEY >= 11 THEN
+;XP1 = START3
+;ENDIF
+;ENDFOLD
+
+XP1.X = XP1.X + (KEY-1) * SHIFT
+;FOLD PTP P1 Vel=100 % PDAT1 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT1
+FDAT_ACT = FP1
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP1
+;ENDFOLD
+XP1.Z = XP1.Z - PRESS
+WAIT FOR ($TIMER[1] > TIME)
+;FOLD PTP P1 Vel=25 % PDAT1 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT1
+FDAT_ACT = FP1
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP1 
+;ENDFOLD
+$TIMER[1] = 0
+XP1.Z = XP1.Z + PRESS
+WAIT FOR ($TIMER[1] > HOLD)
+;FOLD PTP P1 Vel=100 % PDAT1 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT1
+FDAT_ACT = FP1
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP1 
+;ENDFOLD 
+$TIMER_STOP[1]=TRUE
+$TIMER[1] = 0
+RETURN 
+END
+GLOBAL DEF FPLAY(KEY:IN, TIME:IN, HOLD:IN)
+;FOLD Variables INI
+INT KEY 
+INT TIME
+INT HOLD
+INT PRESS
+INT SPEED
+REAL SHIFT 
+;ENDFOLD
+PRESS = 10
+SHIFT = 23.3
+SPEED = 17
+;bylo to 25
+$ADVANCE = 0
+;FOLD STATUS TREATMENT
+IF KEY < 11 THEN
+XP2 = START4
+ELSE
+XP2 = START5 
+ENDIF
+;ENDFOLD
+;XP2=XP3
+XP2.X = XP2.X + (KEY-1) * SHIFT
+;FOLD PTP P2 Vel=100 % PDAT2 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT2; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT2
+FDAT_ACT = FP2
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP2
+;ENDFOLD
+XP2.Z = XP2.Z - PRESS
+
+$ADVANCE = 3
+WAIT FOR ($TIMER[5] > TIME)
+;$TIMER_STOP[3] = FALSE
+;FOLD PTP P2 Vel=25 % PDAT2 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT2; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT2
+FDAT_ACT = FP2
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP2 
+;ENDFOLD
+;$TIMER_STOP[3] = TRUE
+XP2.Z = XP2.Z + PRESS
+WAIT FOR ($TIMER[5] > HOLD)
+;FOLD PTP P2 Vel=100 % PDAT2 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P2; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT2; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT2
+FDAT_ACT = FP2
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP2 
+;ENDFOLD 
+
+RETURN 
+END
+GLOBAL DEF GRIPPER(STATE:IN,CEKEJ:IN)
+INT STATE
+BOOL CEKEJ
+
+WAIT SEC 0
+
+PULSE($OUT[1+STATE], TRUE, 0.75)
+IF CEKEJ THEN
+WAIT SEC 0.75
+ENDIF
+END
+
+GLOBAL DEF PLAY_1(KEY:IN, TIME:IN, HOLD:IN)
+;FOLD Variables INI
+REAL KEY 
+INT TIME
+INT HOLD
+INT PRESS
+INT SPEED
+REAL SHIFT 
+;ENDFOLD
+KEY=KEY/100
+PRESS = 5
+SHIFT = 36.3
+SPEED = 17
+$TIMER_STOP[1]=FALSE
+;FOLD STATUS TREATMENT
+KEY = KEY+7
+IF KEY < 11 THEN
+XP7 = START9
+ELSE
+XP7 = START10 
+ENDIF
+;IF KEY <= 8 THEN
+;XP7 = START1
+;ENDIF
+;IF (KEY > 8) AND (KEY < 11) THEN
+;XP7 = START2 
+;ENDIF
+;IF KEY >= 11 THEN
+;XP7 = START3
+;ENDIF
+;ENDFOLD
+
+XP7.X = XP7.X + (KEY-1) * SHIFT
+;FOLD PTP P7 Vel=100 % PDAT9 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P7; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT9; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT9
+FDAT_ACT = FP7
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP7
+;ENDFOLD
+XP7.Z = XP7.Z - (PRESS+6)
+WAIT FOR ($TIMER[1] > TIME)
+;FOLD PTP P7 Vel=25 % PDAT9 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P7; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT9; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT9
+FDAT_ACT = FP7
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP7 
+;ENDFOLD
+$TIMER[1] = 0
+XP7.Y = XP7.Y - 40
+;FOLD PTP P9 Vel=25 % PDAT10 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P9; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT10; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT10
+FDAT_ACT = FP8
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP9 
+;ENDFOLD
+
+XP7.Z = XP7.Z + PRESS
+WAIT FOR ($TIMER[1] > HOLD)
+;FOLD PTP P7 Vel=100 % PDAT9 Tool[4]:TQGripper Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P7; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT9; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT9
+FDAT_ACT = FP7
+BAS(#PTP_PARAMS, SPEED)
+SET_CD_PARAMS (0)
+PTP XP7 
+;ENDFOLD 
+$TIMER_STOP[1]=TRUE
+$TIMER[1] = 0
+RETURN 
+END
+
+

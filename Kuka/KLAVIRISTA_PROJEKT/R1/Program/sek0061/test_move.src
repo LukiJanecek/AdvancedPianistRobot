@@ -1,0 +1,19 @@
+&ACCESS RVO
+DEF test_move( )
+BAS (#INITMOV, 0)
+PTP $AXIS_ACT
+
+$BASE = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}
+$TOOL = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}
+
+C3BI_CONT = {X 0.0, Y 0.0, Z 0.0}
+
+PTP TEST_START
+
+
+LOOP
+CONTINUE
+PTP_REL C3BI_CONT C_PTP
+ENDLOOP
+
+END

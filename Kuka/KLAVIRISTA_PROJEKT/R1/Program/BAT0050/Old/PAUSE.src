@@ -1,0 +1,39 @@
+&ACCESS RVO
+&REL 42
+&PARAM DISKPATH = KRC:\R1\Program\BAT0050\Subprog
+DEF  PAUSE ( )
+;FOLD INI
+CONTINUE
+IF NOT $ON_PATH THEN
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3     
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+ENDIF
+  ;ENDFOLD (INI)
+$TIMER_STOP[1] = TRUE
+XP1 = $POS_ACT
+XP1.Z = XP1.Z + 70
+;FOLD PTP P1 Vel=25 % PDAT1 Tool[3]:FINGER Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT = PPDAT1
+FDAT_ACT = FP1
+BAS(#PTP_PARAMS, 5)
+SET_CD_PARAMS (0)
+PTP XP1
+;ENDFOLD
+WAIT FOR NOT $IN[5] 
+$TIMER_STOP[1] = FALSE
+
+
+
+RESUME
+
+END

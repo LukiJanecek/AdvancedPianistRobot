@@ -1,13 +1,12 @@
-name: advancedpianistrobot
-version: '3.8'
-
 services:
   backend:
     build:
       context: ./backend
     container_name: pianist-backend
     ports:
-      - "9000:8080"          # host:container  (host = 8000, container = 8080)
+      - "9000:8080"          # host:container  (host = 9000, container = 8080)
+    volumes:
+      - /sys/class/thermal/thermal_zone0/temp:/sys/class/thermal/thermal_zone0/temp:ro
     env_file:
       - ./backend/.env
     restart: unless-stopped

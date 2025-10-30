@@ -19,12 +19,12 @@ async def connect():
     try:
         ok = await robot.KUKA_Open()
         if not ok:
-            raise HTTPException(500, "Open() failed")
+            raise HTTPException(500, "[KUKA] Open() failed")
 
         client = robot.client
         if not client or not client.can_connect:
             await robot.KUKA_Close()
-            raise HTTPException(502, f"Cannot connect to KUKA at {robot.ipAddress}:{robot.port}")
+            raise HTTPException(502, f"[KUKA] Cannot connect to KUKA at {robot.ipAddress}:{robot.port}")
 
         print(f"[KUKA] Connected to robot at {robot.ipAddress}:{robot.port}")
         return {"connected": True, "ip": robot.ipAddress, "port": robot.port}
