@@ -1,0 +1,12 @@
+&ACCESS RV
+DEFDAT  MqttConfig PUBLIC
+
+; Publisher IP address for KukaConnect data-set configuration.
+; Should either start with "mqtt://" or "mqtts://".
+GLOBAL CHAR KUKACONNECT_BROKERIP[100]
+KUKACONNECT_BROKERIP[]="mqtts://broker-ip:8883"
+
+; Publisher for KukaConnect data-set only starts if enabled.
+GLOBAL BOOL KUKACONNECT_ENABLED=FALSE; 
+
+ENDDAT

@@ -1,0 +1,75 @@
+&ACCESS RVO
+DEF  My_Job ( )
+
+;FOLD INI
+CONTINUE
+IF NOT $ON_PATH THEN
+  ;FOLD BASISTECH INI
+    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+    INTERRUPT ON 3 
+    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+ENDIF
+;ENDFOLD (INI)
+
+;FOLD CHECK DAT-FILE GENERATION NUMBER
+  IF APP_GENNUMBER <> -913312 THEN
+    LOOP
+      MsgQuit("InconsistenceSRCandDAT",,,,1)
+      HALT
+    ENDLOOP
+  ENDIF
+;ENDFOLD
+
+
+;fold Jobinfo
+;Job information: My_Job
+;Product : 3.1.0.28784
+;Date: 2021-03-26-11_39
+;Project name: jeste dalsi pokus
+;Author: My Author
+;Company: My Company
+;Division: My Division
+;Comment: My Comment
+;endfold
+
+;fold Cellmap
+; KR 3 R540
+; Dress package KR3 R540 A46
+;endfold
+;fold Axes definitions
+; Axis1 [-170 170] Rot [deg] (KR 3 R540 : A1)
+; Axis2 [-170 50] Rot [deg] (KR 3 R540 : A2)
+; Axis3 [-110 155] Rot [deg] (KR 3 R540 : A3)
+; Axis4 [-175 175] Rot [deg] (KR 3 R540 : A4)
+; Axis5 [-120 120] Rot [deg] (KR 3 R540 : A5)
+; Axis6 [-350 350] Rot [deg] (KR 3 R540 : A6)
+;endfold
+;fold RobRoot, Tools and Bases used
+; $ROBROOT = {x 0,y 0,z 0,a 0,b 0,c 0}
+; TOOL_DATA[1] = {x 0,y 0,z 0,a 0,b 0,c 0}
+;endfold
+;fold HomePositions
+XHOME={A1 0,A2 -90,A3 90,A4 0,A5 0,A6 0,E1 0,E2 0,E3 0,E4 0,E5 0,E6 0}
+$H_POS=XHOME
+;endfold
+;FOLD PTP HOME  Vel=100 % DEFAULT;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=DEFAULT; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
+;ENDFOLD
+$BWDSTART = FALSE
+PDAT_ACT=PDEFAULT
+FDAT_ACT=FDEFAULT
+BAS (#PTP_PARAMS,100)
+SET_CD_PARAMS (0)
+$H_POS=XHOME
+PTP XHOME1 
+;ENDFOLD
+
+WAIT FOR $IN[6]
+RESUME
+END
