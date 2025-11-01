@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 import { apiGet, apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
+//import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
 export default function MainScreen() {
   
@@ -13,13 +13,13 @@ export default function MainScreen() {
   const { send, presence, role, state, canControl } = useWebSocket(Date.now().toString());
 
   // robot connection status
-    const { status, isLoading } = useRobotConnectionPoller();
-    const dotColor = status.online ? "#22C55E" : "#EF4444";
-    const label = isLoading
-      ? "Checking robot..."
-      : status.online
-        ? "Robot connected"
-        : "Robot disconnected";
+  /*const { status, isLoading } = useRobotConnectionPoller();
+  const dotColor = status.online ? "#22C55E" : "#EF4444";
+  const label = isLoading
+    ? "Checking robot..."
+    : status.online
+    ? "Robot connected"
+    : "Robot disconnected";*/
 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
@@ -60,6 +60,7 @@ export default function MainScreen() {
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
       </ThemedText>
 
+      {/*
       <View style={{ gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
@@ -80,6 +81,7 @@ export default function MainScreen() {
           </Text>
         )}
       </View>
+      */}
 
       {role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>

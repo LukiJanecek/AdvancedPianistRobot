@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 
 import { apiGet, apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
+//import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
 export default function MainScreen() {
 
@@ -13,13 +13,13 @@ export default function MainScreen() {
   const { send, presence, role, state, canControl, events } = useWebSocket(Date.now().toString());
   
   // robot connection status
-  const { status, isLoading } = useRobotConnectionPoller();
+  /*const { status, isLoading } = useRobotConnectionPoller();
   const dotColor = status.online ? "#22C55E" : "#EF4444";
   const label = isLoading
     ? "Checking robot..."
     : status.online
       ? "Robot connected"
-      : "Robot disconnected";
+      : "Robot disconnected";*/
 
   // keys
   const keys = Array.from({ length: 36 }, (_, i) => i + 1);
@@ -146,6 +146,7 @@ export default function MainScreen() {
         </ThemedText>
       )}
 
+      {/*
       <View style={{ gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
@@ -166,6 +167,7 @@ export default function MainScreen() {
           </Text>
         )}
       </View>
+      */}
 
       <View style={styles.keysWrap}>
         <ScrollView 
