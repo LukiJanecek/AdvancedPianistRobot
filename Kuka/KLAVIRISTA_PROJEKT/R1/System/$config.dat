@@ -797,6 +797,14 @@ BOOL PyEND=FALSE ;Robot OUT
 BOOL PyWAIT=FALSE ;Robot OUT
 BOOL PyLCoff=FALSE
 BOOL PyMAX_VOLUME=FALSE
+BOOL PyShadow=FALSE
+BOOL PyShadowFB=FALSE
+INT PyNoteNumber = 16
+INT PyNoteDuration = 500000
+INT PyGoToNote = 16
+INT PyGoToNoteFB = 16
+INT PyNotePlayed = 16
+
 ;==================================
 
 DECL FRAME C3BI_JOG_FRAME={X 0.0,Y 0.0,Z 0.0,A 0.0,B 0.0,C 0.0}
