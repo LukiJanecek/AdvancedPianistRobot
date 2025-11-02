@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: pianist-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]  # volitelně
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  expo-frontend:
+    build:
+      context: ./frontend
+    container_name: pianist-frontend
+    ports:
+      - "80:80"
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
