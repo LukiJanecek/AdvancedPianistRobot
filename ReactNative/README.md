@@ -14,4 +14,9 @@ npx expo export -p web
 npx expo export -p android
 
 
+Wifi: Klavirista
+Heslo: VSBKlavirista
+Konfigurace: 192.168.1.1 nebo http://tplinkwifi.net/
+Heslo: VSBKlavirista2025
+
 https://chatgpt.com/share/68e361f5-9574-800b-9c04-6ea81fbbeb5a
