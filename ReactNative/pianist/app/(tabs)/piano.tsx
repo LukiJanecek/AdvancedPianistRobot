@@ -14,7 +14,13 @@ export default function MainScreen() {
   
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();
-  const dotColor = status.online ? "#22C55E" : "#EF4444";
+  
+  const dotColor = isLoading
+  ? "#F59E0B"        
+  : status.online
+  ? "#22C55E"         
+  : "#EF4444";   
+
   const label = isLoading
     ? "Checking robot..."
     : status.online
@@ -35,6 +41,7 @@ export default function MainScreen() {
   useEffect(() => {
     if (!events.length) return;
     const last = events[events.length - 1];
+    
     if (
       (last.type === "note_on" || last.type === "note_off") &&
       typeof last.note !== "undefined"
@@ -50,7 +57,7 @@ export default function MainScreen() {
         });
       }
     }
-
+    
     // shadowing
     const startShadowing = async () => {
       try {
@@ -133,8 +140,11 @@ export default function MainScreen() {
       <ThemedText type="title">Piano</ThemedText>
       <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
       <ThemedText style={styles.text}>
+        
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
+        
       </ThemedText>
+      
       {role === "undefined" && (
         <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
           Čekám na přiřazení role od serveru...
@@ -145,26 +155,25 @@ export default function MainScreen() {
           Room už má performera — Jsi watcher (ovládání vypnuto).
         </ThemedText>
       )}
-
-      <View style={{ gap: 4 }}>
+      
+      <View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
-          <Text style={{ fontSize: 16, fontWeight: "600" }}>{label}</Text>
-          {!isLoading && status.online && status.latency_ms != null && (
-            <Text style={{ marginLeft: 8 }}>({status.latency_ms} ms)</Text>
-          )}
-          {!isLoading && !status.online && status.error && (
-            <Text style={{ marginLeft: 8, opacity: 0.7 }}>[{status.error}]</Text>
-          )}
-        </View>
+          
+          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+            {label}
+          </ThemedText>
 
-        {!isLoading && (
-          <Text style={{ opacity: 0.8 }}>
-            Target: {status.ip ?? "unknown"}{status.port ? `:${status.port}` : ""}
-          </Text>
-        )}
+          <ThemedText style={{ opacity: 0.8 }}>
+            {isLoading
+              ? "Kontroluji připojení…"
+              : `Target: ${status.ip ?? "unknown"}${
+                  status.port ? `:${status.port}` : ""
+                }`}
+          </ThemedText>
+        </View>
       </View>
 
       <View style={styles.keysWrap}>
