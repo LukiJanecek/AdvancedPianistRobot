@@ -69,6 +69,14 @@ IF $IN[3] OR PyBEETHOVEN THEN
 ;PULSE($OUT[3], TRUE, 0.5)
 SONG_3()
 ENDIF
+
+IF PyShadow THEN
+  PyNoteDuration = 30000
+  IF PyGoToNote != -256 THEN
+    PLAYRT(PyGoToNote,0)
+  ENDIF
+ENDIF
+
 MoveLeft = NOT MoveLeft
 ENDLOOP
 END
