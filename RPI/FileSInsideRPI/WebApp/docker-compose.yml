@@ -4,14 +4,12 @@ services:
       context: ./backend
     container_name: pianist-backend
     ports:
-      - "9000:8080"          # host:container  (host = 9000, container = 8080)
-    volumes:
-      - /sys/class/thermal/thermal_zone0/temp:/sys/class/thermal/thermal_zone0/temp:ro
+      - "8000:8000"
     env_file:
       - ./backend/.env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]  # volitelně
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]  # volitelně
       interval: 30s
       timeout: 5s
       retries: 5
@@ -21,9 +19,9 @@ services:
       context: ./frontend
     container_name: pianist-frontend
     ports:
-      - "5112:80"            # nginx poslouchá na 80
+      - "80:80"
     env_file:
-      - ./backend/.env       # pokud tu máš VITE_API_URL apod.
+      - ./backend/.env
     restart: unless-stopped
     environment:
       - CHOKIDAR_USEPOLLING=true

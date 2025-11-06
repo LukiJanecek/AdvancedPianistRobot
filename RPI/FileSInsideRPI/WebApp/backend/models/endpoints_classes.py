@@ -1,10 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-class ConnectReq(BaseModel):
-    ip: Optional[str] = None
-    port: Optional[int] = None
-
+    
 class WriteVarReq(BaseModel):
     name: str = Field(..., examples=["PyX"])
     value: str | float | int | bool

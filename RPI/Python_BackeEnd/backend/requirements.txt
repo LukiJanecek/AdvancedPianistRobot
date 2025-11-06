@@ -4,3 +4,4 @@ pydantic
 python-dotenv
 pydantic-settings
 websockets
+psutil

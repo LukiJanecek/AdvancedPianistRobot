@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+
 import asyncio
+import threading
 
 from api.endpoints_api import router
 from api.ws_api import router_ws
@@ -48,9 +51,10 @@ async def startup_event():
     asyncio.create_task(robot.key_listener_loop())
 
 
-@app.get("/")
-def read_root():
-    return {"message": "DrinkMaker backend běží!!! (Pro přístup k dokumentaci použij /docs)"}
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    # 302 redirect na /docs (swagger UI)
+    return RedirectResponse(url="/docs")
 
 @app.get("/favicon.ico")
 async def favicon():
