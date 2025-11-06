@@ -13,14 +13,20 @@ export default function MainScreen() {
   const { send, presence, role, state, canControl } = useWebSocket(Date.now().toString());
 
   // robot connection status
-    const { status, isLoading } = useRobotConnectionPoller();
-    const dotColor = status.online ? "#22C55E" : "#EF4444";
-    const label = isLoading
-      ? "Checking robot..."
-      : status.online
-        ? "Robot connected"
-        : "Robot disconnected";
+  const { status, isLoading } = useRobotConnectionPoller();
+  
+  const dotColor = isLoading
+  ? "#F59E0B"        
+  : status.online
+  ? "#22C55E"         
+  : "#EF4444";     
 
+  const label = isLoading
+    ? "Checking robot..."
+    : status.online
+    ? "Robot connected"
+    : "Robot disconnected";
+  
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
@@ -31,9 +37,11 @@ export default function MainScreen() {
   ];
 
   const onPressSong = async (btn: { id: number; label: string }) => {
+    
     if (!canControl) {
       return;
     }
+    
     const ts = Date.now();
     const payload = { type: 'song_button', button: btn.id, label: btn.label, ts };
     send(payload);
@@ -55,38 +63,41 @@ export default function MainScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Songs</ThemedText>
-      <ThemedText style={styles.text}>Zvol si svou písničku a odešli na KUKA robota.</ThemedText>
+      <ThemedText style={styles.text}>
+        Zvol si svou písničku a odešli na KUKA robota.
+      </ThemedText>
+
       <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
       </ThemedText>
 
-      <View style={{ gap: 4 }}>
+      <View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
-          <Text style={{ fontSize: 16, fontWeight: "600" }}>{label}</Text>
-          {!isLoading && status.online && status.latency_ms != null && (
-            <Text style={{ marginLeft: 8 }}>({status.latency_ms} ms)</Text>
-          )}
-          {!isLoading && !status.online && status.error && (
-            <Text style={{ marginLeft: 8, opacity: 0.7 }}>[{status.error}]</Text>
-          )}
+          
+          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+            {label}
+          </ThemedText>
+
+          <ThemedText style={{ opacity: 0.8 }}>
+            {isLoading
+              ? "Kontroluji připojení…"
+              : `Target: ${status.ip ?? "unknown"}${
+                  status.port ? `:${status.port}` : ""
+                }`}
+          </ThemedText>
         </View>
-
-        {!isLoading && (
-          <Text style={{ opacity: 0.8 }}>
-            Target: {status.ip ?? "unknown"}{status.port ? `:${status.port}` : ""}
-          </Text>
-        )}
       </View>
-
+      
       {role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
       )}
       {role !== 'performer' && role !== 'undefined' && (
         <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
+      
 
       <View style={styles.buttonsRow}>
         {buttons.map((b) => (

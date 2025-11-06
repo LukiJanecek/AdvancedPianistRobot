@@ -5,7 +5,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export const unstable_settings = { initialRouteName: 'songs_be' };
+export const unstable_settings = { initialRouteName: 'songs' };
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -18,30 +18,16 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
-        name="piano_be"
+        name="piano"
         options={{
-          title: 'Pianist BE',
+          title: 'Pianist',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="piano_fe"
+        name="songs"
         options={{
-          title: 'Pianist FE',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="songs_be"
-        options={{
-          title: 'Songs BE',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="songs_fe"
-        options={{
-          title: 'Songs FE',
+          title: 'Songs',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="pianokeys" color={color} />,
         }}
       />
