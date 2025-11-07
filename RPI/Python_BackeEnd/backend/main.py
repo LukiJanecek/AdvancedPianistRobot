@@ -24,9 +24,8 @@ app = FastAPI(
 
 # Povolené originy
 origins = [
-    "http://localhost:5173",      
-    "http://192.168.1.111:5173",
-    "http://127.0.0.1:5173",      
+    "http://localhost:8081",      
+    "http://127.0.0.1:8081",      
 ]
 
 app.add_middleware(
@@ -47,8 +46,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(robot.autoconnecting_loop())
-    asyncio.create_task(robot.key_listener_loop())
+    #asyncio.create_task(robot.autoconnecting_loop())
+    #asyncio.create_task(robot.key_listener_loop())
+    print("API server started.")
 
 
 @app.get("/", include_in_schema=False)
