@@ -2,6 +2,8 @@ import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
+import { Platform } from 'react-native';
+
 
 import { apiGet, apiPost } from '@/utils/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -9,8 +11,15 @@ import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
 export default function MainScreen() {
 
+  const deviceRef = useRef<string | null>(null);
+
+  if (!deviceRef.current) {
+    // Vytvoří se jen jednou při prvním renderu
+    deviceRef.current = Platform.OS ?? "unknown";
+  }
+
   // websocket
-  const { send, presence, role, state, canControl, events } = useWebSocket(Date.now().toString());
+  const { send, presence, role, state, canControl, events } = useWebSocket(deviceRef.current, "performer");
   
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();
@@ -61,7 +70,7 @@ export default function MainScreen() {
     // shadowing
     const startShadowing = async () => {
       try {
-        const result = await apiPost("/Kuka/robot/startShadowing", {});
+        const result = await apiPost("/Kuka/startShadowing", {});
         console.log("Shadowing started:", result);
       } catch (err: any) {
         console.error("Start shadowing failed:", err.message);
@@ -70,7 +79,7 @@ export default function MainScreen() {
 
     const stopShadowing = async () => {
       try {
-        const result = await apiPost("/Kuka/robot/stopShadowing", {});
+        const result = await apiPost("/Kuka/stopShadowing", {});
         console.log("Shadowing stopped:", result);
       } catch (err: any) {
         console.error("Stop shadowing failed:", err.message);

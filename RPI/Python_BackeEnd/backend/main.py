@@ -19,6 +19,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "General", "description": "Obecná funkce API"},
         {"name": "Kuka", "description": "Funkce pro ovládání KUKA robota"},
+        {"name": "WebSocket", "description": "WebSocket komunikace"},
     ]
 )
 

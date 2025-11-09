@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { SERVER_WS, ROOM, TOKEN } from "../constants/config";
 
+type RoleAssignedInfo = {
+  type: "info";
+  event: "role_assigned";
+  role: "performer" | "watcher";
+  device: string;
+  room: string;
+  client_id: string;
+  message?: string;
+};
+
 type PresenceMsg = {
   type: "presence";
   members: Array<{ client_id: string; device: string; role: string }>;
@@ -10,7 +20,7 @@ type PresenceMsg = {
   note?:number;
 };
 
-type AnyMsg = PresenceMsg | Record<string, any>;
+type AnyMsg = PresenceMsg | RoleAssignedInfo | Record<string, any>;
 type ConnState = "idle" | "connecting" | "open" | "closing" | "closed";
 
 
@@ -29,6 +39,7 @@ export function useWebSocket(
   const wsRef = useRef<WebSocket | null>(null);
   const hbRef = useRef<TimerId | null>(null);
   const retryRef = useRef<{ tries: number; lastCode?: number }>({ tries: 0 });
+  const [selfClientId, setSelfClientId] = useState<string | null>(null);
 
   const openSocket = (role: "performer" | "watcher" | "undefined") => {
     if (wsRef.current) {
@@ -77,7 +88,9 @@ export function useWebSocket(
         }
 
         if (msg?.type === "info" && (msg as any)?.event === "role_assigned") {
+          const info = msg as RoleAssignedInfo;
           setActiveRole((msg as any).role === "performer" ? "performer" : "watcher");
+          setSelfClientId(info.client_id);  
           setEvents((prev) => [...prev, msg]);
           return;
         }
@@ -156,6 +169,7 @@ export function useWebSocket(
     if (isControlMsg && !canControl()) return false;
 
     if (state !== "open" || !wsRef.current) return false;
+    
     try {
       wsRef.current.send(JSON.stringify(obj));
       return true;
@@ -171,5 +185,6 @@ export function useWebSocket(
     state,             // 'idle' | 'connecting' | 'open' | 'closing' | 'closed'
     role: activeRole,  // skutečně aktivní role po handshake/rejectu
     canControl: canControl(), // <- volitelné: předej do UI
-  };
+    clientId: selfClientId, // <- vlastní client_id přidělené serverem
+  };  
 }

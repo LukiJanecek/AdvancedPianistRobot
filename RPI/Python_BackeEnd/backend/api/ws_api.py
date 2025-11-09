@@ -7,9 +7,45 @@ from models.ws_message import WSIn
 
 import asyncio
 
-router_ws = APIRouter()
+router_ws = APIRouter(tags=["WebSocket"])
 
 from core.Kuka_robot_config import robot
+
+@router_ws.get("/WS/performer")
+async def get_performer():
+    performer = []
+
+    # Uzamkneme hub, abychom měli konzistentní přístup k rooms
+    async with hub.lock:
+        for room_name, members in hub.rooms.items():
+            for conn in members:
+                if conn.role == "performer":
+                    performer.append({
+                        "room": room_name,
+                        "client_id": conn.client_id,
+                        "device": conn.device,
+                    })
+
+    return {"performer": performer}
+
+
+@router_ws.get("/WS/watchers")
+async def get_watchers():
+    watchers = []
+
+    # Uzamkneme hub, abychom měli konzistentní přístup k rooms
+    async with hub.lock:
+        for room_name, members in hub.rooms.items():
+            for conn in members:
+                if conn.role == "watcher":
+                    watchers.append({
+                        "room": room_name,
+                        "client_id": conn.client_id,
+                        "device": conn.device,
+                    })
+
+    return {"watchers": watchers}
+
 
 API_TOKEN = "demo-token"
 VALID_ROLES = {"watcher", "performer"}
@@ -34,6 +70,8 @@ async def ws_endpoint(
     if role not in VALID_ROLES:
         await ws.close(code=4400)  # Bad Request
         return
+    
+    print(f"[WS][{client_ip}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
 
     # 3) Vytvoř připojení a pokus se přidat do místnosti
     base_conn = new_conn(ws, device, role)
@@ -78,6 +116,7 @@ async def ws_endpoint(
             "role": active_conn.role,
             "device": active_conn.device,
             "room": room,
+            "client_id": active_conn.client_id,
             "message": f"Vaše role je {active_conn.role}.",
         }, separators=(",", ":")))
     except Exception:

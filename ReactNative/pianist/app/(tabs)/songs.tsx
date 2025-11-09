@@ -47,7 +47,7 @@ export default function MainScreen() {
     send(payload);
 
     try {
-      const result = await apiPost('/robot/playSong', {
+      const result = await apiPost('/Kuka/playSong', {
         songId: btn.id 
       });
       console.log('API response:', result);

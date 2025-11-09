@@ -6,7 +6,7 @@ from core.Kuka_robot_config import robot
 router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
 
-@router_kuka.get("/robot/status")
+@router_kuka.get("/status")
 async def status():
     return {
         "connected": await robot.KUKA_IsConnected(),
@@ -14,7 +14,7 @@ async def status():
         "port": robot.port,
     }
     
-@router_kuka.post("/robot/connect")
+@router_kuka.post("/connect")
 async def connect():
     try:
         ok = await robot.KUKA_Open()
@@ -34,7 +34,7 @@ async def connect():
         raise HTTPException(500, f"Connect exception: {e}")
 
 
-@router_kuka.post("/robot/disconnect")
+@router_kuka.post("/disconnect")
 async def disconnect():
     try:
         await robot.KUKA_Close()
@@ -46,7 +46,7 @@ async def disconnect():
         raise HTTPException(500, f"Disconnect exception: {e}")
     
 
-@router_kuka.post("/robot/playSong")
+@router_kuka.post("/playSong")
 async def play_song(song: int = Query(...)):
     if not await robot.KUKA_IsConnected():
         raise HTTPException(400, "Not connected")
@@ -55,18 +55,20 @@ async def play_song(song: int = Query(...)):
         raise HTTPException(504, "Song play timeout")
     return {"ok": True}
 
-@router_kuka.post("/robot/startShadowing")
+@router_kuka.post("/startShadowing")
 async def start_shadowing():
     if not await robot.KUKA_IsConnected():
+        print("[KUKA] Not connected, cannot start shadowing")
         raise HTTPException(400, "Not connected")
     ok = await robot.start_shadow_mode()
     if not ok:
         raise HTTPException(504, "Start shadowing timeout")
     return {"ok": True}
 
-@router_kuka.post("/robot/stopShadowing")
+@router_kuka.post("/stopShadowing")
 async def stop_shadowing():
     if not await robot.KUKA_IsConnected():
+        print("[KUKA] Not connected, cannot stop shadowing")
         raise HTTPException(400, "Not connected")
     ok = await robot.stop_shadow_mode()
     if not ok:
