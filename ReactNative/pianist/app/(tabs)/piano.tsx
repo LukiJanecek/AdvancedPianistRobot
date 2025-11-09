@@ -61,7 +61,7 @@ export default function MainScreen() {
     // shadowing
     const startShadowing = async () => {
       try {
-        const result = await apiPost("/robot/startShadowing", {});
+        const result = await apiPost("/Kuka/robot/startShadowing", {});
         console.log("Shadowing started:", result);
       } catch (err: any) {
         console.error("Start shadowing failed:", err.message);
@@ -70,7 +70,7 @@ export default function MainScreen() {
 
     const stopShadowing = async () => {
       try {
-        const result = await apiPost("/robot/stopShadowing", {});
+        const result = await apiPost("/Kuka/robot/stopShadowing", {});
         console.log("Shadowing stopped:", result);
       } catch (err: any) {
         console.error("Stop shadowing failed:", err.message);

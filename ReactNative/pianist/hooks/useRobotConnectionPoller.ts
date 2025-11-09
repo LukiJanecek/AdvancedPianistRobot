@@ -53,7 +53,7 @@ export function useRobotConnectionPoller(intervalMs: number = 2000) {
     let timer: ReturnType<typeof setInterval> | null = null;
 
     const poll = async () => {
-      const result = await fetcher("/robot/status");
+      const result = await fetcher("/Kuka/robot/status"); 
       if (!isMounted) return;
 
       setStatus(result);
