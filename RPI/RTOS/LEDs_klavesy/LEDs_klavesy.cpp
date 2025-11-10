@@ -1,106 +1,61 @@
-#include <iostream>
-#include <vector>
-#include <chrono>
-#include <thread>
-#include <cmath>
-#include <cstring>
+// Teoreticky nastrel - prevedyn kod z Fastled z esp32 + implementovana funkce komhunikace pres named pipe - python kod
+
+
 #include <ws2811/ws2811.h>
+#include <iostream>
+#include <unistd.h>
+#include <cstring>
+#include <fcntl.h>
+#include <cstdlib>
+#include <ctime>
 
-using namespace std;
-
-////////// HW / LED nastavení //////////
-#define NUM_LEDS 150
-#define LED_PIN 18
-#define LED_FREQ WS2811_TARGET_FREQ
+#define NUM_LEDS 30
+#define GPIO_PIN 18
 #define DMA 10
 #define BRIGHTNESS 255
-#define STRIP_TYPE WS2811_STRIP_GRB // WS2812B = GRB
 
-////////// Parametry hadů //////////
-#define MAX_SNAKES 16
-#define SNAKE_LENGTH 4
-#define SNAKE_STEP_MS 80
+#define MAX_SNAKES 10
+#define SNAKE_LENGTH 5
+#define SNAKE_STEP_MS 50
 #define SNAKE_FADE_MIN 50
 #define SNAKE_FADE_MAX 255
 #define HUE_SHIFT_PER_OVERLAP 30
 #define SATURATION 230
-#define RENDER_INTERVAL 20
 
-////////// Struktura hada //////////
+ws2811_t ledstring;
+
+// --- Snake struct ---
 struct Snake {
     bool active = false;
     int origin = 0;
     int step = 0;
+    int prevStep = -1;
     int length = SNAKE_LENGTH;
     uint8_t hue = 0;
-    uint64_t lastUpdate = 0;
-    uint64_t stepInterval = SNAKE_STEP_MS;
-};
-
-////////// Globální proměnné //////////
-ws2811_t ledstring = {
-    .freq = LED_FREQ,
-    .dmanum = DMA,
-    .channel = {
-        [0] = {
-            .gpionum = LED_PIN,
-            .invert = 0,
-            .count = NUM_LEDS,
-            .strip_type = STRIP_TYPE,
-            .brightness = BRIGHTNESS,
-        },
-        [1] = {0},
-    },
+    unsigned long lastUpdate = 0;
+    unsigned long stepInterval = SNAKE_STEP_MS;
 };
 
 Snake snakes[MAX_SNAKES];
+
+// --- Buffers pro render ---
 uint16_t brightnessSum[NUM_LEDS];
 uint32_t hueWeightedSum[NUM_LEDS];
 uint8_t overlapCount[NUM_LEDS];
 
-////////// Utility funkce //////////
-uint64_t millis() {
-    using namespace std::chrono;
-    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
-}
+// --- Random hue generator ---
+uint8_t gHue = 0;
 
-uint8_t hue8_to_0_255(int h) {
-    return static_cast<uint8_t>(h & 0xFF);
-}
-
+// --- Helper functions ---
 uint8_t brightnessForDistance(int dist, int length) {
     if (dist < 0 || dist >= length) return 0;
+    if (length <= 1) return SNAKE_FADE_MAX;
     int b = SNAKE_FADE_MAX - ((SNAKE_FADE_MAX - SNAKE_FADE_MIN) * dist) / (length - 1);
-    b = std::clamp(b, 0, 255);
-    return (uint8_t)b;
+    if (b < 0) b = 0;
+    if (b > 255) b = 255;
+    return b;
 }
 
-// HSV → RGB (jednoduchá verze)
-uint32_t hsvToRgb(uint8_t h, uint8_t s, uint8_t v) {
-    float hf = h / 255.0f * 360.0f;
-    float sf = s / 255.0f;
-    float vf = v / 255.0f;
-
-    float c = vf * sf;
-    float x = c * (1 - fabs(fmod(hf / 60.0f, 2) - 1));
-    float m = vf - c;
-    float r, g, b;
-
-    if (hf < 60) { r = c; g = x; b = 0; }
-    else if (hf < 120) { r = x; g = c; b = 0; }
-    else if (hf < 180) { r = 0; g = c; b = x; }
-    else if (hf < 240) { r = 0; g = x; b = c; }
-    else if (hf < 300) { r = x; g = 0; b = c; }
-    else { r = c; g = 0; b = x; }
-
-    uint8_t R = (uint8_t)((r + m) * 255);
-    uint8_t G = (uint8_t)((g + m) * 255);
-    uint8_t B = (uint8_t)((b + m) * 255);
-
-    return (R << 16) | (G << 8) | B;
-}
-
-////////// Logika hadů //////////
 bool spawnSnake(int originIndex, uint8_t hue = 0) {
     if (originIndex < 0 || originIndex >= NUM_LEDS) return false;
     for (int i = 0; i < MAX_SNAKES; ++i) {
@@ -108,6 +63,7 @@ bool spawnSnake(int originIndex, uint8_t hue = 0) {
             snakes[i].active = true;
             snakes[i].origin = originIndex;
             snakes[i].step = 0;
+            snakes[i].prevStep = -1;
             snakes[i].length = SNAKE_LENGTH;
             snakes[i].hue = hue;
             snakes[i].lastUpdate = millis();
@@ -119,115 +75,170 @@ bool spawnSnake(int originIndex, uint8_t hue = 0) {
 }
 
 void killSnake(int idx) {
-    snakes[idx].active = false;
+    if (idx >= 0 && idx < MAX_SNAKES) snakes[idx].active = false;
+}
+
+unsigned long millis() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+void setAll(uint32_t color) {
+    for (int i = 0; i < NUM_LEDS; ++i)
+        ledstring.channel[0].leds[i] = color;
+    ws2811_render(&ledstring);
 }
 
 void updateSnakes() {
-    uint64_t now = millis();
+    unsigned long now = millis();
     for (int s = 0; s < MAX_SNAKES; ++s) {
         if (!snakes[s].active) continue;
         if (now - snakes[s].lastUpdate >= snakes[s].stepInterval) {
             snakes[s].lastUpdate = now;
+            snakes[s].prevStep = snakes[s].step;
             snakes[s].step++;
-            int left = snakes[s].origin - snakes[s].step - (snakes[s].length - 1);
-            int right = snakes[s].origin + snakes[s].step + (snakes[s].length - 1);
-            if (left < 0 && right >= NUM_LEDS)
-                killSnake(s);
+
+            // kill pokud už není žádná část na pásu
+            bool anyOnStrip = false;
+            int origin = snakes[s].origin;
+            int len = snakes[s].length;
+            for (int dir = -1; dir <= 1; dir += 2) {
+                for (int d = 0; d < len; ++d) {
+                    int pos = origin + (snakes[s].step - d) * dir;
+                    if (pos >= 0 && pos < NUM_LEDS) { anyOnStrip = true; break; }
+                }
+                if (anyOnStrip) break;
+            }
+            if (!anyOnStrip) killSnake(s);
         }
     }
 }
 
 void renderSnakesToBuffers() {
-    memset(brightnessSum, 0, sizeof(brightnessSum));
-    memset(hueWeightedSum, 0, sizeof(hueWeightedSum));
-    memset(overlapCount, 0, sizeof(overlapCount));
+    static uint32_t contributors[NUM_LEDS];
+    for (int i = 0; i < NUM_LEDS; ++i) {
+        brightnessSum[i] = 0;
+        hueWeightedSum[i] = 0;
+        contributors[i] = 0;
+        overlapCount[i] = 0;
+    }
 
     for (int s = 0; s < MAX_SNAKES; ++s) {
         if (!snakes[s].active) continue;
         int origin = snakes[s].origin;
-        int step = snakes[s].step;
         int len = snakes[s].length;
         uint8_t hue = snakes[s].hue;
 
-        if (step == 0) {
-            if (origin >= 0 && origin < NUM_LEDS) {
-                uint8_t b = brightnessForDistance(0, len);
-                brightnessSum[origin] += b;
-                hueWeightedSum[origin] += hue * b;
-                overlapCount[origin]++;
+        int fromStep = std::max(0, snakes[s].prevStep);
+        int toStep = snakes[s].step;
+        for (int stepVal = fromStep; stepVal <= toStep; ++stepVal) {
+            if (stepVal == 0) {
+                if (origin >= 0 && origin < NUM_LEDS) {
+                    uint32_t mask = (1UL << s);
+                    if (!(contributors[origin] & mask)) {
+                        uint8_t b = brightnessForDistance(0, len);
+                        brightnessSum[origin] += b;
+                        hueWeightedSum[origin] += (uint32_t)hue * b;
+                        contributors[origin] |= mask;
+                    }
+                }
+                continue;
             }
-            continue;
-        }
-
-        for (int dir = -1; dir <= 1; dir += 2) {
-            for (int d = 0; d < len; ++d) {
-                int pos = origin + (step - d) * dir;
-                if (pos < 0 || pos >= NUM_LEDS) continue;
-                uint8_t b = brightnessForDistance(d, len);
-                if (b == 0) continue;
-                brightnessSum[pos] += b;
-                hueWeightedSum[pos] += hue * b;
-                overlapCount[pos]++;
+            for (int dir = -1; dir <= 1; dir += 2) {
+                for (int d = 0; d < len; ++d) {
+                    int pos = origin + (stepVal - d) * dir;
+                    if (pos < 0 || pos >= NUM_LEDS) continue;
+                    uint32_t mask = (1UL << s);
+                    if (contributors[pos] & mask) continue;
+                    uint8_t b = brightnessForDistance(d, len);
+                    brightnessSum[pos] += b;
+                    hueWeightedSum[pos] += (uint32_t)hue * b;
+                    contributors[pos] |= mask;
+                }
             }
         }
     }
-}
 
-void composeAndShow() {
     for (int i = 0; i < NUM_LEDS; ++i) {
-        if (overlapCount[i] == 0 || brightnessSum[i] == 0) {
-            ledstring.channel[0].leds[i] = 0;
-            continue;
-        }
+        overlapCount[i] = __builtin_popcount((unsigned int)contributors[i]);
         uint16_t totalB = brightnessSum[i];
-        uint8_t avgHue = hueWeightedSum[i] / totalB;
-        int shift = (int)(overlapCount[i] - 1) * HUE_SHIFT_PER_OVERLAP;
-        int finalHue = (avgHue + shift) & 0xFF;
-        uint16_t b = std::min(totalB, (uint16_t)255);
-        ledstring.channel[0].leds[i] = hsvToRgb(finalHue, SATURATION, (uint8_t)b);
+        if (totalB == 0) ledstring.channel[0].leds[i] = 0x000000;
+        else {
+            uint8_t avgHue = hueWeightedSum[i] / totalB;
+            uint8_t finalHue = avgHue;
+            if (overlapCount[i] > 1) finalHue = (avgHue + (overlapCount[i]-1)*HUE_SHIFT_PER_OVERLAP) & 0xFF;
+            uint8_t val = (totalB > 255)? 255 : totalB;
+            // jednoduchá aproximace HSV->RGB pro červené odstíny
+            // jen pro test: map hue 0-255 na červené odstíny
+            ledstring.channel[0].leds[i] = (val << 16); // červená
+        }
     }
     ws2811_render(&ledstring);
 }
 
-////////// Main //////////
+// --- FIFO / pipe ---
+const char *fifo_path = "/tmp/ledpipe";
+int fd = -1;
+
+void initPipe() {
+    mkfifo(fifo_path, 0666);
+    fd = open(fifo_path, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        perror("open fifo");
+        exit(1);
+    }
+}
+
+void checkPipe() {
+    char buf[128];
+    ssize_t n = read(fd, buf, sizeof(buf)-1);
+    if (n > 0) {
+        buf[n] = '\0';
+        int idx = atoi(buf);
+        uint8_t hue = rand() % 256;
+        spawnSnake(idx, hue);
+        std::cout << "Spawn snake at " << idx << " hue=" << (int)hue << std::endl;
+    }
+}
+
+// --- Main ---
 int main() {
-    if (ws2811_init(&ledstring)) {
-        cerr << "WS2811 init failed!" << endl;
+    srand(time(0));
+
+    memset(&ledstring, 0, sizeof(ws2811_t));
+    ledstring.freq = WS2811_TARGET_FREQ;
+    ledstring.dmanum = DMA;
+    ledstring.channel[0].gpionum = GPIO_PIN;
+    ledstring.channel[0].invert = 0;
+    ledstring.channel[0].count = NUM_LEDS;
+    ledstring.channel[0].strip_type = WS2811_STRIP_GRB;
+    ledstring.channel[0].brightness = BRIGHTNESS;
+
+    if (ws2811_init(&ledstring) != WS2811_SUCCESS) {
+        std::cerr << "ws2811_init failed!" << std::endl;
         return -1;
     }
 
-    uint64_t lastRender = 0;
-    string input;
+    initPipe();
 
-    cout << "Type index (0-" << NUM_LEDS - 1 << ") and press Enter to spawn snake.\n";
+    const unsigned long RENDER_INTERVAL = 20;
+    unsigned long lastRender = 0;
 
     while (true) {
-        // neblokující čtení z konzole
-        if (cin.rdbuf()->in_avail() > 0) {
-            getline(cin, input);
-            if (input.size()) {
-                int idx = stoi(input);
-                if (idx >= 0 && idx < NUM_LEDS) {
-                    uint8_t hue = rand() % 256;
-                    if (!spawnSnake(idx, hue))
-                        cout << "No free snake slot!\n";
-                    else
-                        cout << "Spawned snake at " << idx << endl;
-                }
-            }
-        }
-
+        checkPipe();
         updateSnakes();
-        uint64_t now = millis();
+
+        unsigned long now = millis();
         if (now - lastRender >= RENDER_INTERVAL) {
             lastRender = now;
             renderSnakesToBuffers();
-            composeAndShow();
         }
 
-        this_thread::sleep_for(chrono::milliseconds(5));
+        usleep(1000); // 1 ms
     }
 
     ws2811_fini(&ledstring);
+    close(fd);
     return 0;
 }
