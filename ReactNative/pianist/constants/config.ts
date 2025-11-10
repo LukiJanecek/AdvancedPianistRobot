@@ -1,7 +1,11 @@
 export const SERVER_WS = "ws://localhost:8000/ws";
-//export const SERVER_WS = "ws://192.168.1.225:8000/ws";
-//export const SERVER_WS = "ws://10.53.195.194:8000/ws"; // Lukasek IP laptop
-//export const SERVER_WS = "ws://172.20.10.5:8000/ws";
+export const SERVER_URL = "http://localhost:8000";
+
+//export const SERVER_WS = "ws://100.105.234.91:8000/ws";
+//export const SERVER_URL = "http://100.105.234.91:8000";
+
 export const ROOM = "kuka_pianist";
 export const TOKEN = "demo-token";
+
+
 

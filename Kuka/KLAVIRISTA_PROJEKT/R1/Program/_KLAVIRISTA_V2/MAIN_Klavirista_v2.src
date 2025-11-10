@@ -57,25 +57,32 @@ SPTP XP8 WITH $VEL_AXIS[1] = SVEL_JOINT(10.0), $TOOL = STOOL2(FP8), $BASE = SBAS
 
 
 IF $IN[1] OR PyREGGAE THEN
+PyPlayingSong = TRUE
 SONG_1()
 ENDIF
 
 IF $IN[2] OR PySTUPNICE THEN
+PyPlayingSong = TRUE
 ;PULSE($OUT[2], TRUE, 0.5)
 SONG_2()
 ENDIF
 
 IF $IN[3] OR PyBEETHOVEN THEN
+PyPlayingSong = TRUE
 ;PULSE($OUT[3], TRUE, 0.5)
 SONG_3()
 ENDIF
 
 IF PyShadow THEN
+  PyShadowFb = TRUE
   PyNoteDuration = 30000
   IF PyGoToNote != -256 THEN
     PLAYRT(PyGoToNote,0)
   ENDIF
 ENDIF
+
+PyShadowFb = FALSE
+PyPlayingSong = FALSE
 
 MoveLeft = NOT MoveLeft
 ENDLOOP

@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 import asyncio
 import threading
 
+from services.ws_broadcast_service import broadcast_robot_state_loop
 from api.endpoints_api import router
 from api.ws_api import router_ws
 from api.kuka_api import router_kuka
@@ -19,14 +20,14 @@ app = FastAPI(
     openapi_tags=[
         {"name": "General", "description": "Obecná funkce API"},
         {"name": "Kuka", "description": "Funkce pro ovládání KUKA robota"},
+        {"name": "WebSocket", "description": "WebSocket komunikace"},
     ]
 )
 
 # Povolené originy
 origins = [
-    "http://localhost:5173",      
-    "http://192.168.1.111:5173",
-    "http://127.0.0.1:5173",      
+    "http://localhost:8081",      
+    "http://127.0.0.1:8081",      
 ]
 
 app.add_middleware(
@@ -47,8 +48,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
 async def startup_event():
+    global broadcast_task
+    broadcast_task = asyncio.create_task(broadcast_robot_state_loop())
     asyncio.create_task(robot.autoconnecting_loop())
-    asyncio.create_task(robot.key_listener_loop())
+    asyncio.create_task(robot.key_and_position_loop_for_CPP())
+
+    print("API server started.")
 
 
 @app.get("/", include_in_schema=False)
@@ -60,3 +65,10 @@ def root_redirect():
 async def favicon():
     from fastapi.responses import FileResponse
     return FileResponse("static/piano.ico")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global broadcast_task
+    if broadcast_task is not None:
+        broadcast_task.cancel()
+        print("[WS][GLOBAL] broadcast_robot_state_loop zrušen.")

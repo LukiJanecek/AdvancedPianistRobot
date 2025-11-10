@@ -26,10 +26,19 @@ class RoomHub:
         async with self.lock:
             members = self.rooms.setdefault(room, set())
 
+            # 1) Zákaz >1 performera (už máš)
             if c.role == "performer":
-                # Zákaz >1 performera v jedné místnosti
                 if any(m.role == "performer" for m in members):
                     return False
+
+            # 2) Zákaz více spojení se stejným device
+            same_device = [m for m in members if m.device == c.device]
+            for old in same_device:
+                try:
+                    await old.ws.close(code=4400)
+                except Exception:
+                    pass
+                members.discard(old)
 
             members.add(c)
 

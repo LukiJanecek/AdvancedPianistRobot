@@ -14,12 +14,15 @@ export default function MainScreen() {
   const deviceRef = useRef<string | null>(null);
 
   if (!deviceRef.current) {
-    // Vytvoří se jen jednou při prvním renderu
-    deviceRef.current = Platform.OS ?? "unknown";
+    const platform = Platform.OS ?? "unknown"; // "ios" | "android" | "web"
+    const rand = Math.random().toString(36).slice(2, 8); // krátký náhodný řetězec
+    const ts = Date.now().toString(36);                   // čas jako další část
+
+    deviceRef.current = `${platform}-${rand}-${ts}`;
   }
 
   // websocket
-  const { send, presence, role, state, canControl, events } = useWebSocket(deviceRef.current, "performer");
+  const { send, presence, role, state, canControl, events, robotState } = useWebSocket(deviceRef.current, "performer");
   
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();

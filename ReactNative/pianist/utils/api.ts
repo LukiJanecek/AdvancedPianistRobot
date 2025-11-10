@@ -1,12 +1,12 @@
-const BASE_URL = "http://localhost:8000"
+import {SERVER_URL} from "../constants/config";
 
 export async function apiGet(path : string) {
-  const res = await fetch(`${BASE_URL}${path}`, { credentials: 'include' });
+  const res = await fetch(`${SERVER_URL}${path}`, { credentials: 'include' });
   return parseOrThrow(res);
 }
 
 export async function apiPost(path : string, body : any) {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${SERVER_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',

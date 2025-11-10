@@ -241,23 +241,22 @@ class KUKA_Handler:
     async def play_song(self, song_number, timeout=30.0, period=0.2) -> bool:
         if song_number not in SONG_MAP:
             raise ValueError(f"Unknown song number: {song_number}")
-        poll_var_fb, cmd_var = SONG_MAP[song_number]
+        song = SONG_MAP[song_number]
 
         if not await self.KUKA_IsConnected():
             return False
 
-        await self.KUKA_WriteVar(cmd_var, True)
+        await self.KUKA_WriteVar(song, True)
         t0 = time.time()
         while time.time() - t0 < timeout:
-            if await self.KUKA_ReadVar(poll_var_fb):
+            if await self.KUKA_ReadVar("PyPlayingSong"):
                 break
             await asyncio.sleep(period)
         else:
-            await self.KUKA_WriteVar(cmd_var, False)
+            await self.KUKA_WriteVar(song, False)
             return False
 
-        await self.KUKA_WriteVar(cmd_var, False)
-        await self.KUKA_WriteVar(poll_var_fb, False)
+        await self.KUKA_WriteVar(song, False)
         return True
 
 
@@ -293,36 +292,84 @@ class KUKA_Handler:
             await self.KUKA_WriteVar("PyShadowFb", False)
             return False
         return True
-
-    # Asynchronní smyčka pro čtení dat z Kuky
-    async def key_listener_loop(self):
+    
+    async def get_robot_state(self):
+        """
+        Zjistí aktuální stav robota podle proměnných PyShadow a PySong.
+        Vrací dict např. {"status": "shadow"} nebo {"status": "song"} nebo {"status": "idle"}.
+        """
         if not await self.KUKA_IsConnected():
-            print("[KUKA] Not connected, cannot start key listener loop")
-            return
+            return {"status": "error", "detail": "Not connected"}
+        
+        try:
+            is_shadow = await self.KUKA_ReadVar("PyShadowFb")
+            is_song = await self.KUKA_ReadVar("PyPlayingSong")
 
-        print("[KUKA] Starting key listener loop...")
-        key,Z_pos = 0
-        keyLast = -1
-        while True:
-            try:
-                if await self.KUKA_IsConnected():
+            if is_shadow is True:
+                return {"status": "shadow"}
+            elif is_song is True:
+                return {"status": "song"}
+            else:
+                return {"status": "idle"}
+
+        except Exception as e:
+            print(f"[KUKA] Chyba při čtení statusu: {e}")
+            return {"status": "error", "detail": str(e)}
+    
+
+    # Asynchronní smyčka pro čtení klávesy a pozice (spojení obou předchozích)
+    async def key_and_position_loop_for_CPP(self):
+        """
+        Nekonečná smyčka pro periodické čtení hodnoty PyKey a Z pozice robota.
+        Lze spustit přes: asyncio.create_task(robot.key_and_position_loop()).
+        """
+        print("[KUKA] Spouštím key_and_position_loop...")
+
+        key_last = None
+
+        try:
+            while True:
+                # 1) Ověřit připojení
+                if not await self.KUKA_IsConnected():
+                    print("[KUKA] Není připojení - čekám na reconnect...")
+                    await asyncio.sleep(2)
+                    continue
+
+                try:
+                    # 2) Čtení klávesy
                     key = await self.KUKA_ReadVar("PyKey")
-                    if key != keyLast:
+                    if key != key_last:
                         print(f"[KUKA] Hodnota key: {key}")
-                        keyLast = key
+                        key_last = key
 
-                    Z_pos = await self.KUKA_ReadVar("PyZposFb")
-                    if Z_pos is not None:
-                        print(f"[KUKA] Z position: {Z_pos}")
+                    # 3) Čtení Z pozice
+                    z_pos = await self.KUKA_ReadVar("PyZposFb")  # nebo "Z_posFb" podle toho, co máš v KRL
 
-            except Exception as e:
-                print(f"[KUKA] Chyba při čtení: {e}")
+                    if isinstance(z_pos, (int, float)):
+                        # můžeš si zvolit podmínku – např. > 0 nebo vždy logovat
+                        if z_pos > 0:
+                            print(f"[KUKA] Z position: {z_pos}")
+                        # jinak klidně:
+                        # print(f"[KUKA] Z position: {z_pos}")
+                    else:
+                        # volitelný debug, když přijde něco divného
+                        # print(f"[KUKA] Neočekávaný typ Z pozice: {z_pos}")
+                        pass
 
-            await asyncio.sleep(0.12)
+                except Exception as inner_e:
+                    print(f"[KUKA] Chyba při čtení PyKey/Zpos: {inner_e}")
+
+                # 4) Interval mezi čteními
+                await asyncio.sleep(0.12)
+
+        except asyncio.CancelledError:
+            print("[KUKA] key_and_position_loop ukončena (Cancelled).")
+        except Exception as e:
+            print(f"[KUKA] Neočekávaná chyba v key_and_position_loop: {e}")
 
     # Asynchronní smyčka pro připojení k robotu
     async def autoconnecting_loop(self):
-        print("[KUKA] Starting autoconnecting loop...")
+        print("[KUKA] Spuštím autoconnecting loop...")
         while True:
             try:
                 if not await self.KUKA_IsConnected():

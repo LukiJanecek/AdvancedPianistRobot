@@ -10,6 +10,8 @@ type RoleAssignedInfo = {
   room: string;
   client_id: string;
   message?: string;
+  note?:number;
+  state?: RobotState;
 };
 
 type PresenceMsg = {
@@ -18,9 +20,23 @@ type PresenceMsg = {
   has_performer?: boolean;
   watchers?: number;
   note?:number;
+  state?: RobotState;
 };
 
-type AnyMsg = PresenceMsg | RoleAssignedInfo | Record<string, any>;
+type RobotState = {
+  status: "shadow" | "song" | "idle" | "error";
+  [key: string]: any;
+  note?:number;
+};
+
+type RobotStateMsg = {
+  type: "robot_state";
+  state: RobotState;
+  ts?: number;
+  note?:number;
+};
+
+type AnyMsg = PresenceMsg | RoleAssignedInfo | RobotStateMsg | Record<string, any>;
 type ConnState = "idle" | "connecting" | "open" | "closing" | "closed";
 
 
@@ -40,6 +56,8 @@ export function useWebSocket(
   const hbRef = useRef<TimerId | null>(null);
   const retryRef = useRef<{ tries: number; lastCode?: number }>({ tries: 0 });
   const [selfClientId, setSelfClientId] = useState<string | null>(null);
+
+  const [robotState, setRobotState] = useState<RobotState | null>(null);
 
   const openSocket = (role: "performer" | "watcher" | "undefined") => {
     if (wsRef.current) {
@@ -95,13 +113,27 @@ export function useWebSocket(
           return;
         }
 
+        // --- PRESENCE ---
         if (msg?.type === "presence") {
           setPresence(msg as PresenceMsg);
-        } else if (msg?.type === "error" && (msg as any)?.reason === "performer_exists") {
-          setEvents((prev) => [...prev, msg]);
-        } else {
-          setEvents((prev) => [...prev, msg]);
+          return;
         }
+
+        // NEW: STAV ROBOTA Z BACKENDU
+        if (msg?.type === "robot_state") {
+          setRobotState(msg.state);
+          setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
+        // --- ERROR ZPRÁVY ---
+        if (msg?.type === "error" && (msg as any)?.reason === "performer_exists") {
+          setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
+        // Ostatní zprávy si jen logujeme do events
+        setEvents((prev) => [...prev, msg]);
       } catch {
         // ignore
       }
@@ -115,6 +147,8 @@ export function useWebSocket(
       setState("closed");
       setActiveRole("undefined");
       if (hbRef.current) { clearInterval(hbRef.current); hbRef.current = null; }
+
+      setRobotState(null);
 
       // Auto-reconnect s exponenciálním backoffem (max ~10 s)
       const { tries } = retryRef.current;
@@ -157,6 +191,7 @@ export function useWebSocket(
       wsRef.current?.close();
       wsRef.current = null;
       setState("closed");
+      setRobotState(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, desiredRole, echoSelf]);
@@ -186,5 +221,6 @@ export function useWebSocket(
     role: activeRole,  // skutečně aktivní role po handshake/rejectu
     canControl: canControl(), // <- volitelné: předej do UI
     clientId: selfClientId, // <- vlastní client_id přidělené serverem
+    robotState,       // <- aktuální stav robota z backendu
   };  
 }

@@ -150,6 +150,11 @@ async def ws_endpoint(
                 # Zde můžete přidat další logiku pro note_off
                 asyncio.create_task(robot.play_note(data.note, data.duration))
 
+            if data.type == "song_play":
+                print(f"[WS][{client_ip}] Play song - number:{data.song}")
+                # Zde můžete přidat další logiku pro note_off
+                asyncio.create_task(robot.play_song(song_number=data.song))
+
             #[WS][127.0.0.1] Přijatý raw: {"type":"note_on","note":8,"vel":100,"ts":1761211930005}
             #[WS][127.0.0.1] Přijatý raw: {"type":"note_off","note":8,"ts":1761211930539,"duration":534}
           

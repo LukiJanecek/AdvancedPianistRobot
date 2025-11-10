@@ -10,6 +10,7 @@ class WSIn(BaseModel):
     sustain: Optional[bool] = None
     ts: Optional[int] = None
     duration: Optional[int] = None
+    song: Optional[int] = None
 
 class WSOut(BaseModel):
     type: MsgType
