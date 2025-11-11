@@ -1,3 +1,4 @@
+//piano.tsx
 import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -6,24 +7,16 @@ import { Platform } from 'react-native';
 
 
 import { apiGet, apiPost } from '@/utils/api';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
+import { useWs } from "./_layout";
 
 export default function MainScreen() {
 
   const deviceRef = useRef<string | null>(null);
 
-  if (!deviceRef.current) {
-    const platform = Platform.OS ?? "unknown"; // "ios" | "android" | "web"
-    const rand = Math.random().toString(36).slice(2, 8); // krátký náhodný řetězec
-    const ts = Date.now().toString(36);                   // čas jako další část
-
-    deviceRef.current = `${platform}-${rand}-${ts}`;
-  }
-
   // websocket
-  const { send, presence, role, state, canControl, events, robotState } = useWebSocket(deviceRef.current, "performer");
-  
+  const { send, presence, role, state, canControl, events, robotState } = useWs();
+
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();
   
@@ -50,9 +43,10 @@ export default function MainScreen() {
 
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
 
+  // 1) Reakce na events – jen vizuální stav kláves
   useEffect(() => {
     if (!events.length) return;
-    const last = events[events.length - 1];
+    const last = events[events.length - 1] as any;
     
     if (
       (last.type === "note_on" || last.type === "note_off") &&
@@ -69,14 +63,29 @@ export default function MainScreen() {
         });
       }
     }
+  }, [events]);
     
-    // shadowing
+  // 2) Shadowing – start/stop podle možnosti ovládat a připojení robota
+  useEffect(() => {
+    // Shadowing má smysl jen když:
+    // - mám právo ovládat (performer + canControl)
+    // - robot je online
+    if (!canControl /*|| !status.online*/) {
+      return;
+    }
+
+    let cancelled = false;
+
     const startShadowing = async () => {
       try {
         const result = await apiPost("/Kuka/startShadowing", {});
-        console.log("Shadowing started:", result);
+        if (!cancelled) {
+          console.log("Shadowing started:", result);
+        }
       } catch (err: any) {
-        console.error("Start shadowing failed:", err.message);
+        if (!cancelled) {
+          console.error("Start shadowing failed:", err.message);
+        }
       }
     };
 
@@ -92,10 +101,11 @@ export default function MainScreen() {
     startShadowing();
 
     return () => {
+      cancelled = true;
       stopShadowing();
     };
 
-  }, [events]);
+  }, [canControl/*, status.online*/]);
 
   const WHITE_W = 64; 
   const BLACK_W = 40;

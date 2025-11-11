@@ -1,16 +1,24 @@
+//songs.tsx
 import { StyleSheet, Pressable, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useEffect } from 'react';
 
 import { apiGet, apiPost } from '@/utils/api';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useWs } from "./_layout";
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
 export default function MainScreen() {
   
   // websocket
-  const { send, presence, role, state, canControl } = useWebSocket(Date.now().toString());
+  //const { send, presence, role, state, canControl, events, robotState } = useWs();
+
+  // pro test si tam dej fake hodnoty:
+  const send = () => {};
+  const presence = null;
+  const role = "tester";
+  const state = "idle";
+  const canControl = false;
 
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();

@@ -51,9 +51,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.on_event("startup")
 async def startup_event():
     global broadcast_task
-    broadcast_task = asyncio.create_task(broadcast_robot_state_loop())
-    asyncio.create_task(robot.autoconnecting_loop())
-    asyncio.create_task(robot.key_and_position_loop_for_CPP())
+    #broadcast_task = asyncio.create_task(broadcast_robot_state_loop())
+    #asyncio.create_task(robot.autoconnecting_loop())
+    #asyncio.create_task(robot.key_and_position_loop_for_CPP())
 
     print("API server started.")
 
@@ -71,6 +71,6 @@ async def favicon():
 @app.on_event("shutdown")
 async def shutdown_event():
     global broadcast_task
-    if broadcast_task is not None:
-        broadcast_task.cancel()
-        print("[WS][GLOBAL] broadcast_robot_state_loop zrušen.")
+    #if broadcast_task is not None:
+    #    broadcast_task.cancel()
+    #    print("[WS][GLOBAL] broadcast_robot_state_loop zrušen.")

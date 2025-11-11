@@ -4,6 +4,7 @@ from dataclasses import replace
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
+from datetime import datetime
 
 import asyncio
 
@@ -71,7 +72,7 @@ async def ws_endpoint(
         await ws.close(code=4400)  # Bad Request
         return
     
-    print(f"[WS][{client_ip}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
+    print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
 
     # 3) Vytvoř připojení a pokus se přidat do místnosti
     base_conn = new_conn(ws, device, role)
@@ -176,6 +177,7 @@ async def ws_endpoint(
             await hub.send_room(room, payload, skip=None if echo_self else active_conn.client_id)
 
     except WebSocketDisconnect:
+        print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Odpojeno")
         pass
     finally:
         await hub.leave(room, active_conn)
