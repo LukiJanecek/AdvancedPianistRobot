@@ -33,8 +33,8 @@ export default function MainScreen() {
       : "Robot disconnected";
 
   // keys
-  const keys = Array.from({ length: 36 }, (_, i) => i + 1);
-  const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
+  const keys = Array.from({ length: 22 }, (_, i) => i + 1);
+  const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20]; 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
