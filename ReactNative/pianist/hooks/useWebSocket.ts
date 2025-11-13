@@ -39,14 +39,28 @@ type RobotStateMsg = {
 type AnyMsg = PresenceMsg | RoleAssignedInfo | RobotStateMsg | Record<string, any>;
 type ConnState = "idle" | "connecting" | "open" | "closing" | "closed";
 
-
 type TimerId = ReturnType<typeof setInterval>;
 
-export function useWebSocket(
-  device: string,
+type UseWebSocketOptions = {
+  device: string;
+  desiredRole?: "performer" | "watcher";
+  echoSelf?: boolean;
+  enabled?: boolean; 
+};
+
+export function useWebSocket(opts: UseWebSocketOptions
+  /*device: string,
   desiredRole: "performer" | "watcher" = "performer",
-  { echoSelf = false }: { echoSelf?: boolean } = {}
+  { echoSelf = false }: { echoSelf?: boolean } = {},
+  { enabled = true }: UseWebSocketOptions = {}*/
 ) {
+  const {
+    device,
+    desiredRole = "performer",
+    echoSelf = false,
+    enabled = true,
+  } = opts;
+
   const [events, setEvents] = useState<AnyMsg[]>([]);
   const [presence, setPresence] = useState<PresenceMsg | null>(null);
   const [state, setState] = useState<ConnState>("idle");
@@ -58,6 +72,17 @@ export function useWebSocket(
   const [selfClientId, setSelfClientId] = useState<string | null>(null);
 
   const [robotState, setRobotState] = useState<RobotState | null>(null);
+
+  const enabledRef = useRef<boolean>(enabled);        // <- nový guard
+  enabledRef.current = enabled;
+
+  const cleanupTimersAndSocket = () => {
+    if (hbRef.current) { clearInterval(hbRef.current); hbRef.current = null; }
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch {}
+      wsRef.current = null;
+    }
+  };
 
   const openSocket = (role: "performer" | "watcher" | "undefined") => {
     if (wsRef.current) {
@@ -170,16 +195,23 @@ export function useWebSocket(
 
   // Lifecycle + app foreground/background
   useEffect(() => {
-    openSocket(desiredRole);
+    if (enabled) {
+      openSocket(desiredRole);
+    } else {
+      // vypnuto → okamžitě zavřít
+      cleanupTimersAndSocket();
+      setState("closed");
+      setRobotState(null);
+      setActiveRole("undefined");
+    }
 
     const onAppState = (s: AppStateStatus) => {
+      if (!enabledRef.current) return;
       if (s === "active" && state !== "open" && !wsRef.current) {
-        openSocket(activeRole);
+        openSocket(activeRole === "undefined" ? desiredRole : activeRole);
       }
-      if (s !== "active" && wsRef.current && state === "open") {
-        // volitelné: šetřit baterii – zavřít při backgroundu
-        // wsRef.current?.close();
-      }
+      // případně můžeš zavírat v backgroundu
+      // if (s !== "active" && wsRef.current && state === "open") wsRef.current.close();
     };
 
     const sub = AppState.addEventListener("change", onAppState);
@@ -194,7 +226,7 @@ export function useWebSocket(
       setRobotState(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [device, desiredRole, echoSelf]);
+  }, [device, desiredRole, echoSelf, enabled]);
 
   const canControl = () => state === "open" && activeRole === "performer";
 

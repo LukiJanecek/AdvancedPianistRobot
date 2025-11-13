@@ -4,14 +4,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
 import { Platform } from 'react-native';
-
+import { useIsFocused } from '@react-navigation/native';
 
 import { apiGet, apiPost } from '@/utils/api';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 import { useWs } from "./_layout";
 
 export default function MainScreen() {
-
+  const isFocused = useIsFocused();
   const deviceRef = useRef<string | null>(null);
 
   // websocket
