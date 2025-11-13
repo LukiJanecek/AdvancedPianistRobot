@@ -39,9 +39,9 @@ export default function MainScreen() {
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
   const buttons = [
-    { id: 1, label: 'Lehká' },
-    { id: 2, label: 'Střední' },
-    { id: 3, label: 'Těžká' },
+    { id: 1, label: 'Happy Birthday' },
+    { id: 2, label: 'Star wars' },
+    { id: 3, label: 'Beethoven' },
   ];
 
   const onPressSong = async (btn: { id: number; label: string }) => {

@@ -52,8 +52,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def startup_event():
     global broadcast_task
     #broadcast_task = asyncio.create_task(broadcast_robot_state_loop())
-    #asyncio.create_task(robot.autoconnecting_loop())
-    #asyncio.create_task(robot.key_and_position_loop_for_CPP())
+    asyncio.create_task(robot.autoconnecting_loop())
+    asyncio.create_task(robot.key_and_position_loop_for_CPP())
 
     print("API server started.")
 

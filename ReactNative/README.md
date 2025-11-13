@@ -16,6 +16,7 @@ npx expo export -p android
 
 Wifi: Klavirista
 Heslo: VSBKlavirista
+
 Konfigurace: 192.168.1.1 nebo http://tplinkwifi.net/
 Heslo: VSBKlavirista2025
 

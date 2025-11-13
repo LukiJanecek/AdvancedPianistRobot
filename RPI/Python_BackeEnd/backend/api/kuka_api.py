@@ -1,7 +1,8 @@
 # api/service_api.py
 from fastapi import APIRouter, Header, HTTPException, Query
+from typing import Literal
 from core.Kuka_robot_config import robot
-
+import asyncio
 
 router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
@@ -74,3 +75,143 @@ async def stop_shadowing():
     if not ok:
         raise HTTPException(504, "Stop shadowing timeout")
     return {"ok": True}
+
+
+@router_kuka.get("/test/writeRead")
+async def test_write_read(
+    var: Literal[
+        "PyShadow",
+        "PyShadowFb",
+        "PyGoToNote",
+        "PyNoteDuration",
+        "PyKey",
+        "PyPlayingSong",
+        "PyREGGAE",
+        "PySTUPNICE",
+        "PyBEETHOVEN",
+        "PyMAX_VOLUME",
+        "PyEND",
+        "PyACK",
+        "PyWait"
+    ] = Query(..., description="Název KUKA proměnné"),
+    value: str = Query(..., description="Hodnota jako string, např. 'true', 'false', '123'")
+):
+    if not await robot.KUKA_IsConnected():
+        raise HTTPException(400, "Not connected to KUKA")
+
+    # Normalizace bool hodnot pro KUKA (True/False)
+    v = value.strip()
+    if v.lower() == "true":
+        norm = "True"
+    elif v.lower() == "false":
+        norm = "False"
+    else:
+        norm = v
+
+    ok = await robot.KUKA_WriteVar(var, norm)
+    if not ok:
+        raise HTTPException(500, f"Write to var '{var}' failed")
+
+    await asyncio.sleep(0.1)
+
+    read_back = await robot.KUKA_ReadVar(var)
+    if isinstance(read_back, bytes):
+        read_back = read_back.decode("utf-8", errors="ignore")
+
+    return {
+        "var": var,
+        "written": norm,
+        "read_back": read_back,
+        "note": "Používej 'true/false' pro Bool nebo číslo pro Int proměnné."
+    }
+
+@router_kuka.get("/test/readVar")
+async def test_read_var(
+    var: str = Query(..., description=(
+        "Název proměnné, kterou chceš přečíst z KUKA robota. "
+        "Např. PyShadowFb, PyKey, PyZposFb, PyNotePlayed, $POS_ACT"
+    ))
+):
+    """
+    Čte hodnotu z libovolné proměnné na straně KUKA.
+    Vhodné pro ruční testování konkrétní proměnné podle názvu.
+    """
+    if not await robot.KUKA_IsConnected():
+        raise HTTPException(400, "Not connected to KUKA")
+
+    try:
+        value = await robot.KUKA_ReadVar(var)
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="ignore")
+        return {
+            "var": var,
+            "value": value,
+            "note": "Pokud proměnná neexistuje nebo je jiného typu, zkontroluj název v KRL programu."
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read variable '{var}': {e}")
+
+
+@router_kuka.get("/test/note")
+async def test_note(
+    note: int = Query(..., description="Číslo noty 1-23"),
+    duration: int = Query(5000, description="Délka noty v ms")
+):
+    if not await robot.KUKA_IsConnected():
+        raise HTTPException(400, "Not connected to KUKA")
+
+    await robot.KUKA_WriteVar("PyGoToNote", note)
+    await asyncio.sleep(2)
+    await robot.KUKA_WriteVar("PyNoteDuration", duration)
+
+    note_fb = await robot.KUKA_ReadVar("PyGoToNote")
+    duration_fb = await robot.KUKA_ReadVar("PyNoteDuration")
+
+    return {
+        "PyGoToNote_written": note,
+        "PyNoteDuration_written": duration,
+        "PyGoToNote_fb": note_fb,
+        "PyNoteDuration_fb": duration_fb,
+    }
+
+
+@router_kuka.get("/test/allVars")
+async def test_all_vars():
+    if not await robot.KUKA_IsConnected():
+        raise HTTPException(400, "Not connected to KUKA")
+
+    # ===== Seznam proměnných =====
+    vars = [
+        "PyShadow",
+        "PyShadowFb",
+        "PyGoToNote",
+        "PyNoteDuration",
+        "PyREGGAE",
+        "PySTUPNICE",
+        "PyBEETHOVEN",
+        "PyMAX_VOLUME",
+        "PyKey",
+        "PyPlayingSong",
+        "PyEND",
+        "PyACK",
+        "PyWait",
+    ]
+
+    results = {}
+
+    for v in vars:
+        try:
+            val = await robot.KUKA_ReadVar(v)
+            if isinstance(val, bytes):
+                val = val.decode("utf-8", errors="ignore")
+            results[v] = val
+        except Exception as e:
+            results[v] = f"Error: {e}"
+
+
+    return {
+        "robot_ip": robot.ipAddress,
+        "port": robot.port,
+        "connected": await robot.KUKA_IsConnected(),
+        "variables": results,
+    }

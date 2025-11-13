@@ -61,6 +61,7 @@ async def ws_endpoint(
     echo_self: bool = Query(False),
 ):
     client_ip = ws.client.host if ws.client else "unknown"
+
     # 1) Auth
     if token != API_TOKEN:
         await ws.close(code=4401)  # Unauthorized
@@ -75,7 +76,7 @@ async def ws_endpoint(
     print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
 
     # 3) Vytvoř připojení a pokus se přidat do místnosti
-    base_conn = new_conn(ws, device, role)
+    base_conn = new_conn(ws, device, role, client_ip)
     active_conn = base_conn
 
     joined = await hub.join(room, active_conn)  # False = např. performer už existuje
@@ -128,7 +129,7 @@ async def ws_endpoint(
     try:
         while True:
             raw = await ws.receive_text()
-            print(f"[WS][{client_ip}] Přijatý raw:", raw)
+            #print(f"[WS][{client_ip}] Přijatý raw:", raw)
             # Parsování příchozí zprávy
             if raw.startswith("{"):
                 data = WSIn.model_validate_json(raw)
