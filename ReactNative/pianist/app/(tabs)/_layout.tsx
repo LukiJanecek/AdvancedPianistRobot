@@ -7,6 +7,7 @@ import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useIsFocused } from "@react-navigation/native";
 
 import { useWebSocket } from "@/hooks/useWebSocket";
 
@@ -21,6 +22,7 @@ export const unstable_settings = { initialRouteName: "songs" };
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const isFocused = useIsFocused();
 
   // stabilní device id pro celou appku
   const deviceRef = useRef<string | null>(null);
@@ -31,8 +33,8 @@ export default function TabLayout() {
     deviceRef.current = `${platform}-${rand}-${ts}`;
   }
 
-  // 🔴 jediná WS instance
-  const ws = useWebSocket(deviceRef.current, "performer");
+  // jediná WS instance
+  const ws = useWebSocket({ device: deviceRef.current, desiredRole: "performer", echoSelf: false, enabled: isFocused });
 
   return (
     <WebSocketContext.Provider value={ws}>
