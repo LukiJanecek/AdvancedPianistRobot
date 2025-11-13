@@ -1,4 +1,4 @@
-//export const SERVER_WS = "ws://localhost:8000/ws";
+//export const SERVER_WS = "ws://localhost:8000/ws"; //localhost testing 
 //export const SERVER_URL = "http://localhost:8000";
 
 //export const SERVER_WS = "ws://192.168.1.103:8000/ws";
