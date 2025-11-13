@@ -359,7 +359,16 @@ class KUKA_Handler:
 
                 try:
                     pos_raw = await self.KUKA_ReadVar("$POS_ACT")
+                    #print(f"[KUKA][KEYPOSLOOP] Hodnota raw data: {pos_raw}")
+
+                    if pos_raw is None:
+                        continue
+                    
+                    if not pos_raw:
+                        continue
+
                     pose = self.extract_pose(pos_raw)
+                    
 
                     if pose is not None:
                         z_pos = pose.get("Z")
