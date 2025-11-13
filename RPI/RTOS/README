@@ -1,0 +1,34 @@
+###### PYTHON ######
+VŽDY JE POTŘEBA NEJDŘÍV SPUSTIT PYTHON (zatím pro testování), POKUD SE BUDE VYTVÁŘET TEN SOUBOR pro komunikaci- tmp/ledpipe , jinak error s permission => příkazy pro případné odstranění souboru, když dojde k erroru s permission v souboru na ploše (cmd_run_python_script)
+
+Příkazy pro spuštění jsou v souboru na ploše (cmd_run_python_script) - pro jednoduché kopírování:
+1.
+cd ~/Pianist/RTOS/Python_RTOS
+
+2.
+source venv/bin/activate
+
+3.
+python send_LED_event.py
+
+
+remove fifo - permission problem:
+rm /tmp/led_pipe
+rm /tmp/ledpipe
+
+
+
+## AKTUALNI PROBLEM - predavane cislo se preda, ale cpp zacne od random ledky a pokazde jine => nesedi cisla
+
+## INFO KE KODU ##
+
+1. Řádek:
+# -*- coding: utf-8 -*-
+je naprosto nezbytný ke spuštění skriptu z terminálu (special znaky na 90% - po odstranění nejspíš není nutný - netestováno)
+
+
+send_LED_event.py
+- automaticke odesilani random cisel
+
+send_LED_event_manual.py
+- manualni voleni a odesilani cisel
