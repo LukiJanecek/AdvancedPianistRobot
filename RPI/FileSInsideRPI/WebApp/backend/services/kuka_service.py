@@ -8,12 +8,16 @@ import socket
 import threading, time, sys
 import asyncio
 import re
+import os
 
 SONG_MAP: dict[int, str] = {
     1: "PyREGGAE",
     2: "PySTUPNICE",
     3: "PyBEETHOVEN",
 }
+
+PIPE_PATH = "/tmp/ledpipe"
+OFFSET = 60  # posun pro klávesy
 
 ENCODING = "UTF-8"
 PY2 = sys.version_info[0] == 2
@@ -350,6 +354,9 @@ class KUKA_Handler:
         print("[KUKA] Spouštím key_and_position_loop...")
 
         try:
+            if not os.path.exists(PIPE_PATH):
+                os.mkfifo(PIPE_PATH)
+
             while True:
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
@@ -359,16 +366,29 @@ class KUKA_Handler:
 
                 try:
                     pos_raw = await self.KUKA_ReadVar("$POS_ACT")
-                    pose = self.extract_pose(pos_raw)
+                    #print(f"[KUKA][KEYPOSLOOP] Hodnota raw data: {pos_raw}")
 
+                    if pos_raw is None:
+                        continue
+                    
+                    if not pos_raw:
+                        continue
+
+                    pose = self.extract_pose(pos_raw)
+                    
                     if pose is not None:
                         z_pos = pose.get("Z")
                         if z_pos is not None:
                             #print(f"[KUKA][KEYPOSLOOP] Z position: {z_pos:.3f}")
                             if z_pos < 0:
                                 print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
+
                                 key = await self.KUKA_ReadVar("PyKey")
                                 print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
+                                with open(PIPE_PATH, "w") as pipe:
+                                  shifted = key + OFFSET
+                                  print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílání klavesy: {shifted}")
+                                  pipe.write(f"{shifted}\n")
                         else:
                             print(f"[KUKA][KEYPOSLOOP] V parsed pose chybí Z: {pose}")
                     else:

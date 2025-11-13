@@ -1,15 +1,17 @@
-# ✅ Bázový image pro Raspberry Pi (ARM)
+# ✅ Backend (FastAPI / uvicorn)
 FROM python:3.11-slim
 
-# Nastavení pracovní složky v kontejneru
 WORKDIR /app
 
-# Kopíruj požadavky a nainstaluj závislosti
+# závislosti
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Zbytek kódu
+# kód
 COPY . .
 
-# Nastavení příkazů pro spuštění
+# port pro uvicorn
+EXPOSE 8000
+
+# spuštění backendu
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

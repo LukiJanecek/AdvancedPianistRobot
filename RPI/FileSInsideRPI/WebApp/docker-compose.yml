@@ -9,7 +9,7 @@ services:
       - ./backend/.env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]  # volitelně
+      test: ["CMD", "curl", "-f", "http://192.168.1.104:8000/docs"]
       interval: 30s
       timeout: 5s
       retries: 5

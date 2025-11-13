@@ -9,12 +9,23 @@ router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
 @router_kuka.get("/status")
 async def status():
+    state = await robot.get_robot_state()
+
+    # odvozene booly
+    in_shadow = state.get("status") == "shadow"
+    playing_song = state.get("status") == "song"
+
     return {
         "connected": await robot.KUKA_IsConnected(),
         "ip": robot.ipAddress,
         "port": robot.port,
+        "status": state.get("status"),
+        "detail": state.get("detail"),
+        "in_shadow_mode": in_shadow,
+        "playing_song": playing_song,
     }
-    
+
+
 @router_kuka.post("/connect")
 async def connect():
     try:
