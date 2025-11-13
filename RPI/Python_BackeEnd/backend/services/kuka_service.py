@@ -310,7 +310,7 @@ class KUKA_Handler:
             elif is_song is True:
                 return {"status": "song"}
             else:
-                return {"status": "idle"}
+                return {"status": "error"}
 
         except Exception as e:
             print(f"[KUKA] Chyba při čtení statusu: {e}")

@@ -98,8 +98,13 @@ export default function MainScreen() {
       {role !== 'performer' && role !== 'undefined' && (
         <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
-      
 
+      {status.playing_song && (
+        <ThemedText style={{ marginTop: 8, opacity: 0.8 }}>
+          Robot právě hraje - tlačítka jsou zamčená.
+        </ThemedText>
+      )}
+      
       <View style={styles.buttonsRow}>
         {buttons.map((b) => (
           <Pressable

@@ -9,6 +9,7 @@ import threading
 from api.endpoints_api import router
 from api.ws_api import router_ws
 from api.kuka_api import router_kuka
+from fastapi.openapi.docs import get_swagger_ui_html
 
 from core.Kuka_robot_config import robot
 
@@ -20,7 +21,9 @@ app = FastAPI(
         {"name": "General", "description": "Obecná funkce API"},
         {"name": "Kuka", "description": "Funkce pro ovládání KUKA robota"},
         {"name": "WebSocket", "description": "WebSocket komunikace"},
-    ]
+    ],
+    docs_url=None, 
+    redoc_url=None,
 )
 
 # Povolené originy
@@ -49,6 +52,17 @@ app.include_router(router_kuka)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title="Klavirista API - Docs",
+        swagger_js_url="/static/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui.css",     
+        swagger_favicon_url="/static/piano.ico",      
+    )
+
+
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(robot.autoconnecting_loop())
@@ -59,7 +73,6 @@ async def startup_event():
 
 @app.get("/", include_in_schema=False)
 def root_redirect():
-    # 302 redirect na /docs (swagger UI)
     return RedirectResponse(url="/docs")
 
 @app.get("/favicon.ico")

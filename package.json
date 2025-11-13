@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/LukiJanecek/AdvancedPianistRobot/issues"
   },
-  "homepage": "https://github.com/LukiJanecek/AdvancedPianistRobot#readme"
+  "homepage": "https://github.com/LukiJanecek/AdvancedPianistRobot#readme",
+  "dependencies": {
+    "swagger-ui-dist": "^5.30.2"
+  }
 }
