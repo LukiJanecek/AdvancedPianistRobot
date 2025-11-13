@@ -7,11 +7,12 @@ import random
 import socket
 import threading, time, sys
 import asyncio
+import re
 
-SONG_MAP: dict[int, Tuple[str, str]] = {
-    1: ("PyREGGAEFb", "PyREGGAE"),
-    2: ("PySTUPNICEFb", "PySTUPNICE"),
-    3: ("PyBEETHOVENFb", "PyBEETHOVEN"),
+SONG_MAP: dict[int, str] = {
+    1: "PyREGGAE",
+    2: "PySTUPNICE",
+    3: "PyBEETHOVEN",
 }
 
 ENCODING = "UTF-8"
@@ -207,16 +208,15 @@ class KUKA_Handler:
         await self.KUKA_WriteVar(poll_var_fb, False)
         return True
 
-    async def play_note(self, note_number, duration=10000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
+    async def play_note(self, note_number, duration=30000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
         if not await self.KUKA_IsConnected():
             return False
         
         t0 = time.time()
         ok = False
         try:
-            await self.KUKA_WriteVar("PyNoteNumber", int(note_number))
+            await self.KUKA_WriteVar("PyGoToNote", int(note_number))
             await self.KUKA_WriteVar("PyNoteDuration", int(duration))
-            await self.KUKA_WriteVar("PyGoToNote", True)
 
             while time.time() - t0 < timeout:
                 try:
@@ -271,8 +271,6 @@ class KUKA_Handler:
                 break
             await asyncio.sleep(period)
         else:
-            await self.KUKA_WriteVar("PyShadow", False)
-            await self.KUKA_WriteVar("PyShadowFb", False)
             return False
         return True
     
@@ -284,12 +282,10 @@ class KUKA_Handler:
         await self.KUKA_WriteVar("PyShadow", False)
         t0 = time.time()
         while time.time() - t0 < timeout:
-            if await self.KUKA_ReadVar("PyShadowFb") != True:
+            if await self.KUKA_ReadVar("PyShadowFb") == False:
                 break
             await asyncio.sleep(period)
         else:
-            await self.KUKA_WriteVar("PyShadow", False)
-            await self.KUKA_WriteVar("PyShadowFb", False)
             return False
         return True
     
@@ -317,6 +313,34 @@ class KUKA_Handler:
             return {"status": "error", "detail": str(e)}
     
 
+
+    @staticmethod
+    def extract_pose(pos_value: Any) -> Optional[dict[str, float]]:
+        """
+        Z hodnoty E6POS (string/bytes) vytáhne X, Y, Z, A, B, C jako dict.
+        Např.:
+          b"{E6POS: X 281.27, Y -107.82, Z 624.03, A -16.37, B -44.12, C 173.61, ...}"
+        → {"X": 281.27, "Y": -107.82, "Z": 624.03, "A": -16.37, "B": -44.12, "C": 173.61}
+        """
+        if isinstance(pos_value, (bytes, bytearray)):
+            pos_str = pos_value.decode(ENCODING, errors="ignore")
+        else:
+            pos_str = str(pos_value)
+
+        axes = ("X", "Y", "Z", "A", "B", "C")
+        pose: dict[str, float] = {}
+
+        for axis in axes:
+            m = re.search(rf"{axis}\s*([-+]?\d*\.?\d+)", pos_str)
+            if m:
+                try:
+                    pose[axis] = float(m.group(1))
+                except ValueError:
+                    # ignoruj tuto osu, ale nevyhoď celou pozici
+                    pass
+
+        return pose or None
+
     # Asynchronní smyčka pro čtení klávesy a pozice (spojení obou předchozích)
     async def key_and_position_loop_for_CPP(self):
         """
@@ -325,63 +349,66 @@ class KUKA_Handler:
         """
         print("[KUKA] Spouštím key_and_position_loop...")
 
-        key_last = None
-
         try:
             while True:
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
-                    print("[KUKA] Není připojení - čekám na reconnect...")
+                    print("[KUKA][KEYPOSLOOP] Není připojení - čekám na reconnect...")
                     await asyncio.sleep(2)
                     continue
 
                 try:
-                    # 2) Čtení klávesy
-                    key = await self.KUKA_ReadVar("PyKey")
-                    if key != key_last:
-                        print(f"[KUKA] Hodnota key: {key}")
-                        key_last = key
+                    pos_raw = await self.KUKA_ReadVar("$POS_ACT")
+                    #print(f"[KUKA][KEYPOSLOOP] Hodnota raw data: {pos_raw}")
 
-                    # 3) Čtení Z pozice
-                    z_pos = await self.KUKA_ReadVar("PyZposFb")  # nebo "Z_posFb" podle toho, co máš v KRL
+                    if pos_raw is None:
+                        continue
+                    
+                    if not pos_raw:
+                        continue
 
-                    if isinstance(z_pos, (int, float)):
-                        # můžeš si zvolit podmínku – např. > 0 nebo vždy logovat
-                        if z_pos > 0:
-                            print(f"[KUKA] Z position: {z_pos}")
-                        # jinak klidně:
-                        # print(f"[KUKA] Z position: {z_pos}")
+                    pose = self.extract_pose(pos_raw)
+                    
+
+                    if pose is not None:
+                        z_pos = pose.get("Z")
+                        if z_pos is not None:
+                            #print(f"[KUKA][KEYPOSLOOP] Z position: {z_pos:.3f}")
+                            if z_pos < 0:
+                                print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
+                                key = await self.KUKA_ReadVar("PyKey")
+                                print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
+                        else:
+                            print(f"[KUKA][KEYPOSLOOP] V parsed pose chybí Z: {pose}")
                     else:
-                        # volitelný debug, když přijde něco divného
-                        # print(f"[KUKA] Neočekávaný typ Z pozice: {z_pos}")
-                        pass
+                        print(f"[KUKA][KEYPOSLOOP] Nelze parsovat pozici z: {pos_raw}")
 
                 except Exception as inner_e:
-                    print(f"[KUKA] Chyba při čtení PyKey/Zpos: {inner_e}")
+                    print(f"[KUKA][KEYPOSLOOP] Chyba při čtení PyKey/Zpos: {inner_e}")
 
                 # 4) Interval mezi čteními
                 await asyncio.sleep(0.12)
 
         except asyncio.CancelledError:
-            print("[KUKA] key_and_position_loop ukončena (Cancelled).")
+            print("[KUKA][KEYPOSLOOP] key_and_position_loop ukončena (Cancelled).")
         except Exception as e:
-            print(f"[KUKA] Neočekávaná chyba v key_and_position_loop: {e}")
+            print(f"[KUKA][KEYPOSLOOP] Neočekávaná chyba v key_and_position_loop: {e}")
 
     # Asynchronní smyčka pro připojení k robotu
     async def autoconnecting_loop(self):
-        print("[KUKA] Spuštím autoconnecting loop...")
+        print("[KUKA][AUTOCONNECT] Spuštím autoconnecting loop...")
         while True:
             try:
                 if not await self.KUKA_IsConnected():
                     ok = await self.KUKA_Open()
                     if ok:
-                        print(f"[KUKA] Connected to robot at {self.ipAddress}:{self.port}")
+                        print(f"[KUKA][AUTOCONNECT] Připojeno k robotovi na {self.ipAddress}:{self.port}")
                     else:
-                        print("[KUKA] Connect to robot failed.. retrying in 10s")
+                        print("[KUKA][AUTOCONNECT] Připojení selhalo.. opakuju za 10s")
                         await asyncio.sleep(10)
                         continue
                     
                 await asyncio.sleep(10)
 
             except Exception as e:
-                print(f"[KUKA] Connect failed: {e}")
+                print(f"[KUKA][AUTOCONNECT] Connect failed: {e}")

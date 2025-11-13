@@ -4,6 +4,7 @@ from dataclasses import replace
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
+from datetime import datetime
 
 import asyncio
 
@@ -60,6 +61,7 @@ async def ws_endpoint(
     echo_self: bool = Query(False),
 ):
     client_ip = ws.client.host if ws.client else "unknown"
+
     # 1) Auth
     if token != API_TOKEN:
         await ws.close(code=4401)  # Unauthorized
@@ -71,10 +73,10 @@ async def ws_endpoint(
         await ws.close(code=4400)  # Bad Request
         return
     
-    print(f"[WS][{client_ip}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
+    print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
 
     # 3) Vytvoř připojení a pokus se přidat do místnosti
-    base_conn = new_conn(ws, device, role)
+    base_conn = new_conn(ws, device, role, client_ip)
     active_conn = base_conn
 
     joined = await hub.join(room, active_conn)  # False = např. performer už existuje
@@ -127,7 +129,7 @@ async def ws_endpoint(
     try:
         while True:
             raw = await ws.receive_text()
-            print(f"[WS][{client_ip}] Přijatý raw:", raw)
+            #print(f"[WS][{client_ip}] Přijatý raw:", raw)
             # Parsování příchozí zprávy
             if raw.startswith("{"):
                 data = WSIn.model_validate_json(raw)
@@ -150,10 +152,10 @@ async def ws_endpoint(
                 # Zde můžete přidat další logiku pro note_off
                 asyncio.create_task(robot.play_note(data.note, data.duration))
 
-            if data.type == "song_play":
-                print(f"[WS][{client_ip}] Play song - number:{data.song}")
+            if data.type == "song_button":
+                print(f"[WS][{client_ip}] Play song - number:{data.button}")
                 # Zde můžete přidat další logiku pro note_off
-                asyncio.create_task(robot.play_song(song_number=data.song))
+                asyncio.create_task(robot.play_song(song_number=data.button))
 
             #[WS][127.0.0.1] Přijatý raw: {"type":"note_on","note":8,"vel":100,"ts":1761211930005}
             #[WS][127.0.0.1] Přijatý raw: {"type":"note_off","note":8,"ts":1761211930539,"duration":534}
@@ -176,6 +178,7 @@ async def ws_endpoint(
             await hub.send_room(room, payload, skip=None if echo_self else active_conn.client_id)
 
     except WebSocketDisconnect:
+        print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Odpojeno")
         pass
     finally:
         await hub.leave(room, active_conn)

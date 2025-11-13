@@ -11,6 +11,7 @@ class Conn:
     client_id: str
     device: str
     role: str
+    ip: str  
 
 class RoomHub:
     def __init__(self):
@@ -31,9 +32,24 @@ class RoomHub:
                 if any(m.role == "performer" for m in members):
                     return False
 
-            # 2) Zákaz více spojení se stejným device
-            same_device = [m for m in members if m.device == c.device]
-            for old in same_device:
+            # 2) Zákaz více spojení se stejným device NEBO IP (můžeš si vybrat politiku)
+            # aktuálně: podle device (co už máš) + navíc podle IP
+            same_device_or_ip = [
+                m for m in members
+                if (m.device == c.device) or (m.ip == c.ip)  # <<< tady můžeš omezit jen na IP/jen na device
+            ]
+
+            for old in same_device_or_ip:
+                try:
+                    # pošli info starému spojení, že bude nahrazeno
+                    await old.ws.send_text(json.dumps({
+                        "type": "info",
+                        "event": "replaced",
+                        "reason": "same_device_or_ip",
+                        "message": "Byl jsi odpojen, protože se připojilo nové spojení ze stejného zařízení/IP.",
+                    }, separators=(",", ":")))
+                except Exception:
+                    pass
                 try:
                     await old.ws.close(code=4400)
                 except Exception:
@@ -100,7 +116,11 @@ class RoomHub:
         async with self.lock:
             members_list = list(self.rooms.get(room, []))
             members = [
-                {"client_id": c.client_id, "device": c.device, "role": c.role}
+                {"client_id": c.client_id, 
+                 "device": c.device, 
+                 "role": c.role
+                }
+
                 for c in members_list
             ]
             has_performer = any(c.role == "performer" for c in members_list)
@@ -115,5 +135,5 @@ class RoomHub:
 
 hub = RoomHub()
 
-def new_conn(ws: WebSocket, device: str, role: str) -> Conn:
-    return Conn(ws=ws, client_id=str(uuid.uuid4()), device=device, role=role)
+def new_conn(ws: WebSocket, device: str, role: str, ip: str) -> Conn:
+    return Conn(ws=ws, client_id=str(uuid.uuid4()), device=device, role=role, ip=ip)

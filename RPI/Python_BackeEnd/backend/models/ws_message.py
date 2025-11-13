@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, Literal
 
-MsgType = Literal["note_on", "note_off", "event", "ping", "pong", "shadow_mode", "songs_mode"]
+MsgType = Literal["note_on", "note_off", "event", "ping", "pong", "shadow_mode", "song_button"]
 
 class WSIn(BaseModel):
     type: MsgType
@@ -10,7 +10,7 @@ class WSIn(BaseModel):
     sustain: Optional[bool] = None
     ts: Optional[int] = None
     duration: Optional[int] = None
-    song: Optional[int] = None
+    button: Optional[int] = None
 
 class WSOut(BaseModel):
     type: MsgType

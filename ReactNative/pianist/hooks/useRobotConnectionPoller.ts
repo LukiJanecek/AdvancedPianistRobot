@@ -40,7 +40,7 @@ const fetcher = async (path: string): Promise<RobotStatus> => {
   }
 };
 
-export function useRobotConnectionPoller(intervalMs: number = 60000) {
+export function useRobotConnectionPoller(intervalMs: number = 10000) {
   const [status, setStatus] = useState<RobotStatus>({
     online: false,
     error: "No data",

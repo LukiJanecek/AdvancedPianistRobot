@@ -1,16 +1,27 @@
+//songs.tsx
 import { StyleSheet, Pressable, View, Text } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useEffect } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 
-import { apiGet, apiPost } from '@/utils/api';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useWs } from "./_layout";
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
 export default function MainScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   
   // websocket
-  const { send, presence, role, state, canControl } = useWebSocket(Date.now().toString());
+  const { send, presence, role, state, canControl, events, robotState } = useWs();
+
+  // pro test si tam dej fake hodnoty:
+  //const send = () => {};
+  //const presence = null;
+  //const role = "tester";
+  //const state = "idle";
+  //const canControl = false;
 
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();
@@ -31,9 +42,9 @@ export default function MainScreen() {
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
   const buttons = [
-    { id: 1, label: 'Lehká' },
-    { id: 2, label: 'Střední' },
-    { id: 3, label: 'Těžká' },
+    { id: 1, label: 'Happy Birthday' },
+    { id: 2, label: 'Star wars' },
+    { id: 3, label: 'Beethoven' },
   ];
 
   const onPressSong = async (btn: { id: number; label: string }) => {
@@ -45,16 +56,6 @@ export default function MainScreen() {
     const ts = Date.now();
     const payload = { type: 'song_button', button: btn.id, label: btn.label, ts };
     send(payload);
-
-    try {
-      const result = await apiPost('/Kuka/playSong', {
-        songId: btn.id 
-      });
-      console.log('API response:', result);
-    } 
-    catch (err) {
-      console.error('API error:', err);
-    }
 
     setLastPressed(`${btn.label} pressed`);
     setLastPayload(payload);
@@ -105,23 +106,47 @@ export default function MainScreen() {
             key={b.id}
             disabled={!canControl}
             onPress={() => onPressSong(b)}
-            style={({ pressed }) => [
-              styles.btn,
-              pressed ? styles.btnPressed : null,
-              !canControl ? styles.btnDisabled : null,
-            ]}
+            style={({ pressed }) => {
+              const baseBg = isDark ? '#111827' : '#ffffff';
+              const pressedBg = isDark ? '#1f2937' : '#f3f4f6';
+              const border = isDark ? '#374151' : '#e5e7eb';
+
+              return [
+                styles.btn,
+                {
+                  backgroundColor: pressed ? pressedBg : baseBg,
+                  borderColor: border,
+                },
+                !canControl && styles.btnDisabled,
+              ];
+            }}
           >
             <ThemedText style={styles.btnText}>{b.label}</ThemedText>
           </Pressable>
         ))}
       </View>
 
-      <View style={styles.footer}>
-        <ThemedText style={styles.footerText}>
+      <View
+        style={[
+          styles.footer,
+          { borderColor: isDark ? '#374151' : '#e5e7eb' },
+        ]}
+      >
+        <ThemedText
+          style={[
+            styles.footerText,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}
+        >
           {lastPressed ? lastPressed : 'Ještě nic nebylo stisknuto'}
         </ThemedText>
         {lastPayload && (
-          <ThemedText style={styles.footerPayload}>
+          <ThemedText
+            style={[
+              styles.footerPayload,
+              { color: isDark ? '#9ca3af' : '#6b7280' },
+            ]}
+          >
             {JSON.stringify(lastPayload, null, 2)}
           </ThemedText>
         )}
@@ -166,9 +191,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-  },
-  btnPressed: {
-    backgroundColor: '#f3f4f6',
   },
   btnDisabled: {
     opacity: 0.6,

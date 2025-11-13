@@ -73,10 +73,13 @@ PyPlayingSong = TRUE
 SONG_3()
 ENDIF
 
-IF PyShadow THEN
+WHILE PyShadow THEN
+
   PyShadowFb = TRUE
-  PyNoteDuration = 30000
-  IF PyGoToNote != -256 THEN
+
+ ;PTP SHADOW
+
+  IF PyGoToNote > 0 THEN
     PLAYRT(PyGoToNote,0)
   ENDIF
 ENDIF
@@ -86,4 +89,5 @@ PyPlayingSong = FALSE
 
 MoveLeft = NOT MoveLeft
 ENDLOOP
+
 END

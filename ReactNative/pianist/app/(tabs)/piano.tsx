@@ -1,29 +1,24 @@
+//piano.tsx
 import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
-import { Platform } from 'react-native';
-
+import { useColorScheme } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 
 import { apiGet, apiPost } from '@/utils/api';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
+import { useWs } from "./_layout";
 
 export default function MainScreen() {
-
+  const isFocused = useIsFocused();
   const deviceRef = useRef<string | null>(null);
-
-  if (!deviceRef.current) {
-    const platform = Platform.OS ?? "unknown"; // "ios" | "android" | "web"
-    const rand = Math.random().toString(36).slice(2, 8); // krátký náhodný řetězec
-    const ts = Date.now().toString(36);                   // čas jako další část
-
-    deviceRef.current = `${platform}-${rand}-${ts}`;
-  }
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   // websocket
-  const { send, presence, role, state, canControl, events, robotState } = useWebSocket(deviceRef.current, "performer");
-  
+  const { send, presence, role, state, canControl, events, robotState } = useWs();
+
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();
   
@@ -40,8 +35,8 @@ export default function MainScreen() {
       : "Robot disconnected";
 
   // keys
-  const keys = Array.from({ length: 36 }, (_, i) => i + 1);
-  const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34]; // 25 black keys 
+  const keys = Array.from({ length: 22 }, (_, i) => i + 1);
+  const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20]; 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
@@ -50,9 +45,10 @@ export default function MainScreen() {
 
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
 
+  // 1) Reakce na events – jen vizuální stav kláves
   useEffect(() => {
     if (!events.length) return;
-    const last = events[events.length - 1];
+    const last = events[events.length - 1] as any;
     
     if (
       (last.type === "note_on" || last.type === "note_off") &&
@@ -69,14 +65,29 @@ export default function MainScreen() {
         });
       }
     }
+  }, [events]);
     
-    // shadowing
+  // 2) Shadowing – start/stop podle možnosti ovládat a připojení robota
+  useEffect(() => {
+    // Shadowing má smysl jen když:
+    // - mám právo ovládat (performer + canControl)
+    // - robot je online
+    if (!canControl /*|| !status.online*/ || !isFocused) {
+      return;
+    }
+
+    let cancelled = false;
+
     const startShadowing = async () => {
       try {
         const result = await apiPost("/Kuka/startShadowing", {});
-        console.log("Shadowing started:", result);
+        if (!cancelled) {
+          console.log("Shadowing started:", result);
+        }
       } catch (err: any) {
-        console.error("Start shadowing failed:", err.message);
+        if (!cancelled) {
+          console.error("Start shadowing failed:", err);
+        }
       }
     };
 
@@ -92,10 +103,11 @@ export default function MainScreen() {
     startShadowing();
 
     return () => {
+      cancelled = true;
       stopShadowing();
     };
 
-  }, [events]);
+  }, [canControl/*, status.online*/, isFocused]); 
 
   const WHITE_W = 64; 
   const BLACK_W = 40;
@@ -133,7 +145,7 @@ export default function MainScreen() {
     const payloadOn = { type: "note_on", note: `${k}#`, vel: 100, ts };
     setLastPressed(`Black key ${k}# pressed`);
     setLastPayload(payloadOn);
-    send(payloadOn);
+    //send(payloadOn);
   };
 
   const onBlackPressOut = (k: number) => {
@@ -143,7 +155,7 @@ export default function MainScreen() {
     const duration = tsDown ? tsUp - tsDown : undefined;
     const payloadOff = { type: "note_off", note: `${k}#`, ts: tsUp, duration };
     setLastPayload(payloadOff);
-    send(payloadOff);
+    //send(payloadOff);
     delete blackKeyDownTs.current[k];
   };
 
@@ -194,18 +206,25 @@ export default function MainScreen() {
           style={styles.keysScroller} 
           //contentContainerStyle={[styles.keysRow, { paddingBottom: 12 }]}
           showsHorizontalScrollIndicator={true}
+          //contentContainerStyle={styles.keysRow}
+          contentContainerStyle={[styles.keysRow, { flexGrow: 1 }]}
           //persistentScrollbar={true}        // Android: lišta zůstává viditelnější
           //indicatorStyle="black"            // iOS: styl indikátoru („black“/„white“/„default“)
           //scrollIndicatorInsets={{ bottom: 4 }} // iOS: mírné odsazení indikátoru
         > 
-          <View style={styles.keysRow}>
-            {keys.map((key) => (
+        {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                   disabled={!canControl}
                   style={({ pressed }) => [
                     styles.whiteKey,
-                    { backgroundColor: pressed || pressedKeys[key] ? '#ddd' : '#fff' },
+                    {
+                      borderColor: isDark ? '#9ca3af' : '#000000',
+                      backgroundColor:
+                        pressed || pressedKeys[key]
+                          ? (isDark ? '#e5e7eb' : '#ddd')
+                          : '#ffffff',
+                    },
                   ]}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
@@ -213,13 +232,18 @@ export default function MainScreen() {
                   <ThemedText style={styles.keyLabel}>{key}</ThemedText>
                 </Pressable>
 
-                {/* Black keys  */}
                 {blackKeyPositions.includes(key) && (
                   <Pressable
                     disabled={!canControl}
                     style={({ pressed }) => [
                       styles.blackKey,
-                      { backgroundColor: pressed || pressedKeys[`${key}#`] ? '#444' : '#000', left: BLACK_LEFT },
+                      {
+                        backgroundColor:
+                          pressed || pressedKeys[`${key}#`]
+                            ? '#4b5563'
+                            : '#000000',
+                        left: BLACK_LEFT,
+                      },
                     ]}
                     onPressIn={() => onBlackPressIn(key)}
                     onPressOut={() => onBlackPressOut(key)}
@@ -231,16 +255,30 @@ export default function MainScreen() {
                 )}
               </View>
             ))}
-          </View> 
         </ScrollView>
       </View>
 
-      <View style={styles.footer}>
-        <ThemedText style={styles.footerText}>
+      <View
+        style={[
+          styles.footer,
+          { borderColor: isDark ? '#374151' : '#e5e7eb' },
+        ]}
+      >
+        <ThemedText
+          style={[
+            styles.footerText,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}
+        >
           {lastPressed ? lastPressed : 'No key pressed yet'}
         </ThemedText>
         {lastPayload && (
-          <ThemedText style={styles.footerPayload}>
+          <ThemedText
+            style={[
+              styles.footerPayload,
+              { color: isDark ? '#9ca3af' : '#6b7280' },
+            ]}
+          >
             {JSON.stringify(lastPayload, null, 2)}
           </ThemedText>
         )}
@@ -264,6 +302,7 @@ const styles = StyleSheet.create({
     //marginTop: 30,
     flexDirection: 'row',
     alignItems: 'flex-end',
+    justifyContent: 'center',
     height: 180,       
     paddingHorizontal: 12,
   },

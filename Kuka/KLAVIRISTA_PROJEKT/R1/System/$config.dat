@@ -799,6 +799,7 @@ BOOL PyLCoff=FALSE
 BOOL PyMAX_VOLUME=FALSE
 BOOL PyShadow=FALSE
 BOOL PyShadowFB=FALSE
+BOOL PyPlayingSong=TRUE
 INT PyNoteNumber = 16
 INT PyNoteDuration = 500000
 INT PyGoToNote = 16

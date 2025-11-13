@@ -16,3 +16,20 @@ docker compose stop
 
 - Zastaví a smaže kontejnery, ale nesmaže image ani volumes.
 docker compose down
+
+
+
+docker compose logs
+
+docker compose logs backend
+
+
+docker compose logs -f
+
+docker compose logs -f backend
+
+
+docker ps
+
+docker logs -f <container_name>
+
