@@ -104,7 +104,7 @@ export default function MainScreen() {
         {buttons.map((b) => (
           <Pressable
             key={b.id}
-            disabled={!canControl}
+            disabled={!canControl || status.playing_song === true}
             onPress={() => onPressSong(b)}
             style={({ pressed }) => {
               const baseBg = isDark ? '#111827' : '#ffffff';

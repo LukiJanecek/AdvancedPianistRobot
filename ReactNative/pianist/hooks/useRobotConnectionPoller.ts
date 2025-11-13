@@ -4,10 +4,16 @@ import { useState, useEffect } from 'react';
 //import { SERVER_WS } from "../constants/config"; 
 import { apiGet } from "../utils/api";
 
+type RobotMode = "idle" | "shadow" | "song" | "error" | undefined;
+
 type RobotStatusRaw = {
   connected: boolean;
   ip: string;
   port: number;
+  status?: RobotMode;
+  detail?: string | null;
+  in_shadow_mode?: boolean;
+  playing_song?: boolean;
 };
 
 export type RobotStatus = {
@@ -16,7 +22,14 @@ export type RobotStatus = {
   port?: number;
   latency_ms?: number | null;
   error?: string | null;
+
+  // doplněné:
+  status?: RobotMode;
+  detail?: string | null;
+  in_shadow_mode?: boolean;
+  playing_song?: boolean;
 };
+
 
 const fetcher = async (path: string): Promise<RobotStatus> => {
   const t0 = Date.now();
@@ -28,6 +41,11 @@ const fetcher = async (path: string): Promise<RobotStatus> => {
       port: raw.port,
       latency_ms: Date.now() - t0,
       error: null,
+
+      status: raw.status,
+      detail: raw.detail,
+      in_shadow_mode: raw.in_shadow_mode,
+      playing_song: raw.playing_song,
     };
   } catch (e: any) {
     return {
@@ -40,7 +58,7 @@ const fetcher = async (path: string): Promise<RobotStatus> => {
   }
 };
 
-export function useRobotConnectionPoller(intervalMs: number = 10000) {
+export function useRobotConnectionPoller(intervalMs: number = 3000) {
   const [status, setStatus] = useState<RobotStatus>({
     online: false,
     error: "No data",
