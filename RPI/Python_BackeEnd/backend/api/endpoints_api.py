@@ -2,6 +2,10 @@ from fastapi import APIRouter
 import subprocess
 import platform
 import psutil
+import os
+
+PIPE_PATH = "/tmp/ledpipe"
+OFFSET = 60  # posun pro klávesy
 
 router = APIRouter(prefix="/system", tags=["General"])
 
@@ -59,5 +63,25 @@ def get_throttle_status():
             "throttled": bool(val & 4),
             "temp_limit": bool(val & 8),
         }
+    except Exception as e:
+        return {"error": str(e)}
+    
+@router.get("/ledPipeLineTest/{key}")
+def pipe_line_test(key: int):
+    if not os.path.exists(PIPE_PATH):
+        return {"error": "LED pipe does not exist."}
+    
+    try:
+        shifted = key + OFFSET
+
+        with open(PIPE_PATH, "w") as pipe:
+            pipe.write(f"{shifted}\n")
+
+        return {
+            "status": "success",
+            "led_id": key,
+            "shifted": shifted,
+        }
+
     except Exception as e:
         return {"error": str(e)}
