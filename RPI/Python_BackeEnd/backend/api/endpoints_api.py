@@ -4,8 +4,7 @@ import platform
 import psutil
 import os
 
-PIPE_PATH = "/tmp/ledpipe"
-OFFSET = 60  # posun pro klávesy
+from core.PipeLine_config import PIPE_PATH, OFFSET
 
 router = APIRouter(prefix="/system", tags=["General"])
 
@@ -68,10 +67,10 @@ def get_throttle_status():
     
 @router.get("/ledPipeLineTest/{key}")
 def pipe_line_test(key: int):
-    if not os.path.exists(PIPE_PATH):
-        return {"error": "LED pipe does not exist."}
-    
     try:
+        if not os.path.exists(PIPE_PATH):
+            os.mkfifo(PIPE_PATH)
+        
         shifted = key + OFFSET
 
         with open(PIPE_PATH, "w") as pipe:
@@ -79,9 +78,9 @@ def pipe_line_test(key: int):
 
         return {
             "status": "success",
-            "led_id": key,
+            "key": key,
             "shifted": shifted,
         }
-
+        
     except Exception as e:
-        return {"error": str(e)}
+      return {"error": str(e)}
