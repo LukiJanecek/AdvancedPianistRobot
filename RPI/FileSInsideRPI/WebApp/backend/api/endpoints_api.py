@@ -2,6 +2,9 @@ from fastapi import APIRouter
 import subprocess
 import platform
 import psutil
+import os
+
+from core.PipeLine_config import PIPE_PATH, OFFSET
 
 router = APIRouter(prefix="/system", tags=["General"])
 
@@ -61,3 +64,23 @@ def get_throttle_status():
         }
     except Exception as e:
         return {"error": str(e)}
+    
+@router.get("/ledPipeLineTest/{key}")
+def pipe_line_test(key: int):
+    try:
+        if not os.path.exists(PIPE_PATH):
+            os.mkfifo(PIPE_PATH)
+        
+        shifted = key + OFFSET
+
+        with open(PIPE_PATH, "w") as pipe:
+            pipe.write(f"{shifted}\n")
+
+        return {
+            "status": "success",
+            "key": key,
+            "shifted": shifted,
+        }
+        
+    except Exception as e:
+      return {"error": str(e)}

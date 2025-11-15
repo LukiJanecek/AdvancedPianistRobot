@@ -10,14 +10,13 @@ import asyncio
 import re
 import os
 
+from core.PipeLine_config import PIPE_PATH, OFFSET
+
 SONG_MAP: dict[int, str] = {
     1: "PyREGGAE",
     2: "PySTUPNICE",
     3: "PyBEETHOVEN",
 }
-
-PIPE_PATH = "/tmp/ledpipe"
-OFFSET = 60  # posun pro klávesy
 
 ENCODING = "UTF-8"
 PY2 = sys.version_info[0] == 2
