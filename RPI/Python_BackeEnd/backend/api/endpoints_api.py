@@ -69,7 +69,7 @@ def get_throttle_status():
 def pipe_line_test(key: int):
     try:
         if not os.path.exists(PIPE_PATH):
-            os.mkfifo(PIPE_PATH)
+            return {"error": f"Pipe {PIPE_PATH} does not exist."}
         
         shifted = key + OFFSET
 
