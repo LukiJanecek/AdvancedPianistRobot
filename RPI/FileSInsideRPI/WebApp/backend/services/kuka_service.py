@@ -9,6 +9,7 @@ import threading, time, sys
 import asyncio
 import re
 import os
+import errno
 
 from core.PipeLine_config import PIPE_PATH, OFFSET
 
@@ -353,10 +354,18 @@ class KUKA_Handler:
         print("[KUKA] Spouštím key_and_position_loop...")
 
         try:
+            '''# Jednorázová inicializace FIFO
             if not os.path.exists(PIPE_PATH):
-                os.mkfifo(PIPE_PATH)
+                try:
+                    os.mkfifo(PIPE_PATH)
+                    print(f"[KUKA][KEYPOSLOOP] Vytvořeno FIFO: {PIPE_PATH}")
+                except FileExistsError:
+                    pass
+                except OSError as e:
+                    print(f"[KUKA][KEYPOSLOOP] Chyba při vytváření FIFO: {e}")'''
 
             while True:
+                
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
                     print("[KUKA][KEYPOSLOOP] Není připojení - čekám na reconnect...")
@@ -367,10 +376,15 @@ class KUKA_Handler:
                     pos_raw = await self.KUKA_ReadVar("$POS_ACT")
                     #print(f"[KUKA][KEYPOSLOOP] Hodnota raw data: {pos_raw}")
 
-                    if pos_raw is None:
+                    # Pokud je to bool (True/False), není to platný string s pozicí
+                    if isinstance(pos_raw, bool):
+                        print(f"[KUKA][KEYPOSLOOP] VAROVÁNÍ: $POS_ACT vrátil bool: {pos_raw} -> přeskočeno")
+                        await asyncio.sleep(0.12)
                         continue
-                    
-                    if not pos_raw:
+
+                    if pos_raw is None or not pos_raw:
+                        # Nic smysluplného – přeskočit
+                        await asyncio.sleep(0.12)
                         continue
 
                     pose = self.extract_pose(pos_raw)
@@ -379,15 +393,61 @@ class KUKA_Handler:
                         z_pos = pose.get("Z")
                         if z_pos is not None:
                             #print(f"[KUKA][KEYPOSLOOP] Z position: {z_pos:.3f}")
-                            if z_pos < 0:
+                            if z_pos < 25:
                                 print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
 
                                 key = await self.KUKA_ReadVar("PyKey")
                                 print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
-                                with open(PIPE_PATH, "w") as pipe:
-                                  shifted = key + OFFSET
-                                  print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílání klavesy: {shifted}")
-                                  pipe.write(f"{shifted}\n")
+
+                                # 1) Když je None → nic neposílej, jen log
+                                if key is None:
+                                    print("[KUKA][KEYPOSLOOP] PyKey je None -> přeskočeno (žádná klávesa?)")
+                                    await asyncio.sleep(0.12)
+                                    continue
+
+                                # 2) Když je to prázdný string
+                                if isinstance(key, str) and key.strip() == "":
+                                    print("[KUKA][KEYPOSLOOP] PyKey je prázdný string -> přeskočeno")
+                                    await asyncio.sleep(0.12)
+                                    continue
+
+                                # 3) Když je to bool (true/false z KRL)
+                                if isinstance(key, bool):
+                                    print(f"[KUKA][KEYPOSLOOP] PyKey je bool ({key}) -> neočekávané, přeskočeno")
+                                    await asyncio.sleep(0.12)
+                                    continue
+
+                                try:
+                                    if isinstance(key, (bytes, bytearray)):
+                                        key_int = int(key.decode().strip())
+                                    else:
+                                        key_int = int(key)
+
+                                    # sem můžeš přidat ještě rozsah, např. jen 1–88:
+                                    if not (1 <= key_int <= 23):
+                                        print(f"[KUKA][KEYPOSLOOP] PyKey ({key_int}) mimo rozsah -> přeskočeno")
+                                        await asyncio.sleep(0.12)
+                                        continue
+
+                                    shifted = key_int + OFFSET
+
+                                except (ValueError, TypeError) as e:
+                                    print(f"[KUKA][KEYPOSLOOP] Neplatná hodnota PyKey ({key}): {e}")
+                                    shifted = None
+
+                                if shifted is not None:
+                                    try:
+                                        fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+                                        with os.fdopen(fd, "w") as pipe:
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílání klávesy: {shifted}")
+                                            pipe.write(f"{shifted}\n")
+                                            
+                                    except OSError as e:
+                                        if e.errno == errno.ENXIO:
+                                            # nikdo nečte pipe → daemon neběží
+                                            print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), klávesa se neodeslala.")
+                                        else:
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu do FIFO: {e}")
                         else:
                             print(f"[KUKA][KEYPOSLOOP] V parsed pose chybí Z: {pose}")
                     else:

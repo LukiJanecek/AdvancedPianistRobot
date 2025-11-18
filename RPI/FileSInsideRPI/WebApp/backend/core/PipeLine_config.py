@@ -1,2 +1,3 @@
-PIPE_PATH = "/tmp/ledpipe"
+# core/PipeLine_config.py
+PIPE_PATH = "/tmp/led/pipe"
 OFFSET = 60

@@ -8,6 +8,21 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
+    volumes:
+      - /tmp/led:/tmp/led
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+          if [ ! -p /tmp/led/pipe ]; then
+            mkfifo -m 666 /tmp/led/pipe;
+            echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/pipe";
+          else
+            echo "[ENTRYPOINT] FIFO /tmp/led/pipe už existuje";
+          fi
+
+          echo "[ENTRYPOINT] Startuju uvicorn..."
+          exec uvicorn main:app --host 0.0.0.0 --port 8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://192.168.1.104:8000/docs"]
       interval: 30s
