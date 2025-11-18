@@ -4,7 +4,7 @@
 //export const SERVER_WS = "ws://192.168.1.103:8000/ws";
 //export const SERVER_URL = "http://192.168.1.103:8000";
 
-export const SERVER_WS = "ws://192.168.1.104:8000/ws";
+export const SERVER_WS = "ws://192.168.1.104:8000/ws"; //RPI
 export const SERVER_URL = "http://192.168.1.104:8000";
 
 //export const SERVER_WS = "ws://100.105.234.91:8000/ws"; //Tailscale server

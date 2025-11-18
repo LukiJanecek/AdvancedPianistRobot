@@ -3,6 +3,7 @@ import subprocess
 import platform
 import psutil
 import os
+import errno
 
 from core.PipeLine_config import PIPE_PATH, OFFSET
 
@@ -67,13 +68,25 @@ def get_throttle_status():
     
 @router.get("/ledPipeLineTest/{key}")
 def pipe_line_test(key: int):
-    try:
-        if not os.path.exists(PIPE_PATH):
-            return {"error": f"Pipe {PIPE_PATH} does not exist."}
-        
-        shifted = key + OFFSET
+    # --- 0) Validace vstupu ---
+    if key < 1 or key > 23:
+        msg = f"Key {key} is out of valid range (1-23)."
+        print(f"[SYSTEM][PIPELINE] {msg}")
+        return {"status": "error", "detail": msg, "key": key}
+    
+    # 1) FIFO musí existovat
+    if not os.path.exists(PIPE_PATH):
+        msg = f"Pipe {PIPE_PATH} does not exist."
+        print(f"[SYSTEM][PIPELINE] {msg}")
+        return {"status": "error", "detail": msg}
 
-        with open(PIPE_PATH, "w") as pipe:
+    shifted = key + OFFSET
+
+    try:
+        # 2) Non-blocking open – neblokuje, když není reader
+        fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+        with os.fdopen(fd, "w") as pipe:
+            print(f"[SYSTEM][PIPELINE] Odesílám klávesu: {shifted}")
             pipe.write(f"{shifted}\n")
 
         return {
@@ -81,6 +94,17 @@ def pipe_line_test(key: int):
             "key": key,
             "shifted": shifted,
         }
-        
-    except Exception as e:
-      return {"error": str(e)}
+
+    except OSError as e:
+        if e.errno == errno.ENXIO:
+            msg = "Nikdo nečte FIFO (daemon asi neběží), klávesa se neodeslala."
+        else:
+            msg = f"Chyba při zápisu do FIFO: {e}"
+
+        print(f"[SYSTEM][PIPELINE] {msg}")
+        return {
+            "status": "error",
+            "key": key,
+            "shifted": shifted,
+            "detail": msg,
+        }
