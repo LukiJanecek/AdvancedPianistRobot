@@ -48,7 +48,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="piano"
           options={{
-            title: "Pianist",
+            title: "Piano",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="pianokeys" color={color} />
             ),
@@ -57,13 +57,14 @@ export default function TabLayout() {
         <Tabs.Screen
           name="songs"
           options={{
-            title: "Songs",
+            title: "Skladby",
             tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="pianokeys" color={color} />
+              <IconSymbol size={28} name="music.note.list" color={color} />
             ),
           }}
         />
       </Tabs>
+      
     </WebSocketContext.Provider>
   );
 }

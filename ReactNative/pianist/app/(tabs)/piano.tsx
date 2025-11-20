@@ -9,6 +9,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { apiGet, apiPost } from '@/utils/api';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 import { useWs } from "./_layout";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -29,10 +30,10 @@ export default function MainScreen() {
   : "#EF4444";   
 
   const label = isLoading
-    ? "Checking robot..."
+    ? "Kontrola připojení..."
     : status.online
-      ? "Robot connected"
-      : "Robot disconnected";
+      ? "Robot připojen"
+      : "Robot odpojen";
 
   // keys
   const keys = Array.from({ length: 22 }, (_, i) => i + 1);
@@ -161,27 +162,27 @@ export default function MainScreen() {
 
   return (
     <ThemedView style={styles.container}>
-     {/* <ThemedText type="title">Piano</ThemedText>
-     <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
-      <ThemedText style={styles.text}>
+     {/*<ThemedText type="title">Piano</ThemedText>*/}
+     {/*<ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>*/}
+      {/*<ThemedText style={styles.text}>
         
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
         
-      </ThemedText>
+      </ThemedText>*/}
       
-      {role === "undefined" && (
+      {/*{role === "undefined" && (
         <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
           Čekám na přiřazení role od serveru...
         </ThemedText>
-      )}
+      )}*/}
       {role !== "performer" && role !== "undefined" && (
         <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
-          Room už má performera — Jsi watcher (ovládání vypnuto).
+          Ovládání: Zakázáno
         </ThemedText>
       )}
-      */}
       
-      <View style={{ marginTop: 16, gap: 4 }}>
+      
+      <View style={{ gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
@@ -191,13 +192,13 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          <ThemedText style={{ opacity: 0.8}}>
+          {/*<ThemedText style={{ opacity: 0.8}}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
+          </ThemedText>*/}
         </View>
       </View>
 
@@ -206,12 +207,12 @@ export default function MainScreen() {
           horizontal 
           style={styles.keysScroller} 
           //contentContainerStyle={[styles.keysRow, { paddingBottom: 12 }]}
-          showsHorizontalScrollIndicator={true}
+          showsHorizontalScrollIndicator={false}
           //contentContainerStyle={styles.keysRow}
           contentContainerStyle={[styles.keysRow, { flexGrow: 1 }]}
           //persistentScrollbar={true}        // Android: lišta zůstává viditelnější
           //indicatorStyle="black"            // iOS: styl indikátoru („black“/„white“/„default“)
-          //scrollIndicatorInsets={{ bottom: 4 }} // iOS: mírné odsazení indikátoru
+          //scrollIndicatorInsets={{ bottom: -6 }} // iOS: mírné odsazení indikátoru
         > 
         {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
@@ -230,7 +231,7 @@ export default function MainScreen() {
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                 >
-                  <ThemedText style={styles.keyLabel}>{key}</ThemedText>
+                  {/*<ThemedText style={styles.keyLabel}>{key}</ThemedText>*/}
                 </Pressable>
 
                 {blackKeyPositions.includes(key) && (
@@ -249,15 +250,16 @@ export default function MainScreen() {
                     onPressIn={() => onBlackPressIn(key)}
                     onPressOut={() => onBlackPressOut(key)}
                   >
-                    <ThemedText style={styles.blackKeyLabel}>
+                    {/*<ThemedText style={styles.blackKeyLabel}>
                       {key}#
-                    </ThemedText>
+                    </ThemedText>*/}
                   </Pressable>
                 )}
               </View>
             ))}
         </ScrollView>
-      </View>
+        
+</View>
 
       {/*<View
         style={[
@@ -295,18 +297,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    marginTop: 20,
+   // marginTop: 20,
     fontSize: 16,
     textAlign: 'center',
   },
   keysRow: {
-    //marginTop: 30,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    height: 180,       
+    height: 200,       
     paddingHorizontal: 12,
-    marginTop: 20,
   },
   whiteKeyWrap: {
     position: 'relative',
@@ -340,12 +340,10 @@ const styles = StyleSheet.create({
   },
   blackKeyLabel: {
     color: '#fff',
-    marginBottom: 4,
     fontSize: 12,
   },
   keyLabel: {
     fontSize: 12,
-    marginBottom: 4,
   },
   keysWrap: {
     marginTop: 24,
@@ -357,9 +355,6 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   footer: {
-    marginTop: 10,
-    paddingVertical: 12,
-    borderTopWidth: 1,
     borderColor: '#e5e7eb',
     width: '100%',
     alignItems: 'center',
@@ -369,8 +364,21 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   footerPayload: {
-    marginTop: 6,
     fontSize: 12,
     color: "#6b7280", // šedá
   },
+
+
+  logoContainer: {
+  position: 'absolute',
+  top: 20,
+  right: 20,
+  zIndex: 999,       // stays above everything
+},
+
+logo: {
+  width: 50,
+  height: 50,
+},
+
 });

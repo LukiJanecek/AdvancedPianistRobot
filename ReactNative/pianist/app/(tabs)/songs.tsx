@@ -6,6 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useState, useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
+
 import { useWs } from "./_layout";
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
@@ -33,10 +34,10 @@ export default function MainScreen() {
   : "#EF4444";     
 
   const label = isLoading
-    ? "Checking robot..."
+    ? "Kontrola připojení..."
     : status.online
-    ? "Robot connected"
-    : "Robot disconnected";
+    ? "Robot připojen"
+    : "Robot odpojen";
   
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
@@ -63,14 +64,14 @@ export default function MainScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Songs</ThemedText>
-      <ThemedText style={styles.text}>
+      <ThemedText type="title">Zahrej skladbu</ThemedText>
+      {/*<ThemedText style={styles.text}>
         Zvol si svou písničku a odešli na KUKA robota.
-      </ThemedText>
+      </ThemedText>*/}
 
-      <ThemedText style={styles.text}>
+     {/* <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
-      </ThemedText>
+      </ThemedText>*/}
 
       <View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -82,19 +83,19 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          <ThemedText style={{ opacity: 0.8 }}>
+          {/*<ThemedText style={{ opacity: 0.8 }}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
+          </ThemedText>*/}
         </View>
       </View>
       
-      {role === 'undefined' && (
+      {/*{role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
-      )}
+      )}*/}
       {role !== 'performer' && role !== 'undefined' && (
         <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
@@ -112,15 +113,15 @@ export default function MainScreen() {
             disabled={!canControl || status.playing_song === true}
             onPress={() => onPressSong(b)}
             style={({ pressed }) => {
-              const baseBg = isDark ? '#111827' : '#ffffff';
-              const pressedBg = isDark ? '#1f2937' : '#f3f4f6';
+              const baseBg = isDark ? '#00A499' : '#ffffff';
+              const pressedBg = isDark ? '#9b9b9bff' : '#f3f4f6';
               const border = isDark ? '#374151' : '#e5e7eb';
 
               return [
                 styles.btn,
                 {
                   backgroundColor: pressed ? pressedBg : baseBg,
-                  borderColor: border,
+                  borderColor: baseBg,
                 },
                 !canControl && styles.btnDisabled,
               ];
@@ -131,7 +132,7 @@ export default function MainScreen() {
         ))}
       </View>
 
-      <View
+      {/*<View
         style={[
           styles.footer,
           { borderColor: isDark ? '#374151' : '#e5e7eb' },
@@ -155,7 +156,7 @@ export default function MainScreen() {
             {JSON.stringify(lastPayload, null, 2)}
           </ThemedText>
         )}
-      </View>
+      </View>*/}
     </ThemedView>
   );
 }
@@ -170,16 +171,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
+    color: '#ffffffff',
   },
   note: {
     marginTop: 6,
     fontSize: 13,
     textAlign: 'center',
     opacity: 0.8,
+    color: '#ffffffff',
   },
   buttonsRow: {
     marginTop: 28,
-    width: '100%',
+    width: '50%',
+    height: 200,
     paddingHorizontal: 16,
     gap: 12,
   },
@@ -201,7 +205,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   btnText: {
-    fontSize: 16,
+    fontSize: 20,
+    color: '#ffffffff',
   },
   footer: {
     marginTop: 24,
