@@ -1,6 +1,6 @@
 # services/ws_hub_service.py
 import json, uuid, asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace 
 from typing import Dict, Set, Optional
 from fastapi import WebSocket
 from dataclasses import replace
@@ -132,6 +132,119 @@ class RoomHub:
             "has_performer": has_performer,
             "watchers": watchers
         })
+    
+    async def drop_all_performers(self) -> int:
+        """
+        Zavře všechna WebSocket spojení s rolí 'performer' ve všech místnostech.
+        Vrací počet odpojených performerů.
+        """
+        performers: list[Conn] = []
+
+        # 1) Nasbírat seznam performerů (bez close/await uvnitř locku)
+        async with self.lock:
+            for room, members in self.rooms.items():
+                for c in list(members):
+                    if c.role == "performer":
+                        performers.append(c)
+
+        # 2) Mimo lock – poslat zprávu a zavřít WS
+        for c in performers:
+            try:
+                await c.ws.send_text(json.dumps({
+                    "type": "info",
+                    "event": "kicked",
+                    "reason": "admin_drop_all_performers",
+                    "message": "Byl jsi odpojen jako performer administrativním zásahem.",
+                }, separators=(",", ":")))
+            except Exception:
+                pass
+
+            try:
+                # Zavření spojení – ve ws_endpoint to chytí WebSocketDisconnect
+                # a v finally zavolá hub.leave(room, active_conn)
+                await c.ws.close(code=4404)
+            except Exception:
+                pass
+
+        return len(performers)
+
+    # ------------------- NOVÁ FUNKCE: převzetí role performera -------------------
+    async def force_takeover(self, room: str, new_performer_id: str) -> bool:
+        """
+        V dané místnosti `room` nastaví klienta s client_id == new_performer_id jako 'performer'.
+        Dosavadní performer(y) se shodí na 'watcher'.
+        Vrací True pokud se povedlo, False pokud místnost nebo client_id neexistuje.
+        """
+        async with self.lock:
+            members = self.rooms.get(room)
+            if not members:
+                return False
+
+            # najdi cílového klienta
+            target = None
+            for m in members:
+                if m.client_id == new_performer_id:
+                    target = m
+                    break
+
+            if target is None:
+                return False  # client_id v místnosti není
+
+            if target.role == "performer":
+                # už performer je, jen pošleme presence mimo lock
+                upgraded = target
+                demoted: list[Conn] = []
+                # drop lock a pošleme presence níž
+            else:
+                new_members: Set[Conn] = set()
+                demoted: list[Conn] = []
+                upgraded: Optional[Conn] = None
+
+                for m in members:
+                    if m.client_id == new_performer_id:
+                        # upgradujeme na performera
+                        upgraded = replace(m, role="performer")
+                        new_members.add(upgraded)
+                    elif m.role == "performer":
+                        # původní performer -> watcher
+                        dem = replace(m, role="watcher")
+                        new_members.add(dem)
+                        demoted.append(dem)
+                    else:
+                        new_members.add(m)
+
+                if upgraded is None:
+                    return False
+
+                # přepíšeme obsah místnosti
+                self.rooms[room] = new_members
+
+        # --- Mimo lock pošleme info všem dotčeným a presence ---
+        try:
+            await upgraded.ws.send_text(json.dumps({
+                "type": "info",
+                "event": "role_changed",
+                "role": "performer",
+                "reason": "admin_takeover",
+                "message": "Byl jsi nastaven jako performer (admin takeover).",
+            }, separators=(",", ":")))
+        except Exception:
+            pass
+
+        for d in demoted:
+            try:
+                await d.ws.send_text(json.dumps({
+                    "type": "info",
+                    "event": "role_changed",
+                    "role": "watcher",
+                    "reason": "admin_takeover",
+                    "message": "Byl jsi přeřazen na watcher, protože jiný klient převzal roli performera.",
+                }, separators=(",", ":")))
+            except Exception:
+                pass
+
+        await self._presence(room)
+        return True
 
 hub = RoomHub()
 

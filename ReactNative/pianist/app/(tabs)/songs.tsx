@@ -14,7 +14,7 @@ export default function MainScreen() {
   const isDark = colorScheme === 'dark';
   
   // websocket
-  const { send, presence, role, state, canControl, events, robotState } = useWs();
+  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();
 
   // pro test si tam dej fake hodnoty:
   //const send = () => {};
