@@ -130,6 +130,13 @@ export function useWebSocket(opts: UseWebSocketOptions
           return;
         }
 
+        if (msg?.type === "info" && (msg as any)?.event === "role_changed") {
+          const newRole = (msg as any).role === "performer" ? "performer" : "watcher";
+          setActiveRole(newRole);
+          setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
         if (msg?.type === "info" && (msg as any)?.event === "role_assigned") {
           const info = msg as RoleAssignedInfo;
           setActiveRole((msg as any).role === "performer" ? "performer" : "watcher");
@@ -148,6 +155,12 @@ export function useWebSocket(opts: UseWebSocketOptions
         if (msg?.type === "robot_state") {
           setRobotState(msg.state);
           setEvents((prev) => [...prev, msg]);
+          return;
+        }
+
+        if (msg?.type === "info" && (msg as any)?.event === "kicked") {
+          setEvents((prev) => [...prev, msg]);
+          setActiveRole("undefined");
           return;
         }
 

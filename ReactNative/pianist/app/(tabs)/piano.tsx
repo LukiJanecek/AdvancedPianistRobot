@@ -11,6 +11,8 @@ import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 import { useWs } from "./_layout";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
+import { ROOM } from "../../constants/config";
+
 export default function MainScreen() {
   const isFocused = useIsFocused();
   const deviceRef = useRef<string | null>(null);
@@ -18,7 +20,7 @@ export default function MainScreen() {
   const isDark = colorScheme === 'dark';
 
   // websocket
-  const { send, presence, role, state, canControl, events, robotState } = useWs();
+  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();
 
   // robot connection status
   const { status, isLoading } = useRobotConnectionPoller();
@@ -260,6 +262,58 @@ export default function MainScreen() {
         </ScrollView>
         
 </View>
+
+      {/* --- ADMIN BUTTONS FOR WS --- */}
+      <View style={{ marginTop: 20, gap: 12, width: "100%", paddingHorizontal: 20 }}>
+
+        {/* Kick all performers */}
+        <Pressable
+          onPress={async () => {
+            try {
+              const res = await apiPost("/WS/performers/clear", {});
+              console.log("Kick all performers:", res);
+            } catch (err: any) {
+              console.error("Kick performers failed:", err);
+            }
+          }}
+          style={({ pressed }) => ({
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: pressed ? "#b91c1c" : "#dc2626",
+            alignItems: "center",
+          })}
+        >
+          <Text style={{ color: "white", fontWeight: "600" }}>
+            Kick ALL performers
+          </Text>
+        </Pressable>
+
+        {/* TAKEOVER performer */}
+        <Pressable
+          onPress={async () => {
+            if (!presence?.members) return;
+            const me = presence.members.find(m => m.client_id === selfClientId);
+
+            try {
+              const res = await apiPost(`/WS/${ROOM}/takeover?client_id=${selfClientId}`, {});
+              console.log("Takeover result:", res);
+            } catch (err: any) {
+              console.error("Takeover failed:", err);
+            }
+          }}
+          style={({ pressed }) => ({
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: pressed ? "#2563eb" : "#3b82f6",
+            alignItems: "center",
+          })}
+        >
+          <Text style={{ color: "white", fontWeight: "600" }}>
+            Take Performer Role
+          </Text>
+        </Pressable>
+
+      </View>
 
       {/*<View
         style={[

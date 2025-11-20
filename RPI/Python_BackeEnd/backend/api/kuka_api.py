@@ -206,6 +206,7 @@ async def test_all_vars():
         "PyEND",
         "PyACK",
         "PyWait",
+        "$POS_ACT",
     ]
 
     results = {}
