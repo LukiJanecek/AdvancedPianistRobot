@@ -161,8 +161,8 @@ export default function MainScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Piano</ThemedText>
-      <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
+     {/* <ThemedText type="title">Piano</ThemedText>
+     <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
       <ThemedText style={styles.text}>
         
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
@@ -179,6 +179,7 @@ export default function MainScreen() {
           Room už má performera — Jsi watcher (ovládání vypnuto).
         </ThemedText>
       )}
+      */}
       
       <View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -190,7 +191,7 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          <ThemedText style={{ opacity: 0.8 }}>
+          <ThemedText style={{ opacity: 0.8}}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
@@ -258,13 +259,13 @@ export default function MainScreen() {
         </ScrollView>
       </View>
 
-      <View
+      {/*<View
         style={[
           styles.footer,
           { borderColor: isDark ? '#374151' : '#e5e7eb' },
         ]}
       >
-        <ThemedText
+        {/*<ThemedText
           style={[
             styles.footerText,
             { color: isDark ? '#e5e7eb' : '#374151' },
@@ -282,7 +283,7 @@ export default function MainScreen() {
             {JSON.stringify(lastPayload, null, 2)}
           </ThemedText>
         )}
-      </View>
+      </View>*/}
     </ThemedView>
   );
 }
@@ -305,6 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 180,       
     paddingHorizontal: 12,
+    marginTop: 20,
   },
   whiteKeyWrap: {
     position: 'relative',
@@ -312,7 +314,7 @@ const styles = StyleSheet.create({
   },
   whiteKey: {
     width: 64,        // úzké tlačítko jako klávesa
-    height: 180,
+    height: 200,
     //marginHorizontal: 3,
     borderWidth: 1,
     borderColor: '#000',
@@ -355,7 +357,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   footer: {
-    marginTop: 32,
+    marginTop: 10,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderColor: '#e5e7eb',
