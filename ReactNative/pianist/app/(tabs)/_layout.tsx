@@ -63,6 +63,15 @@ export default function TabLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="Admin"
+          options={{
+            title: "Admin",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="key" color={color} />
+            ),
+          }}
+        />
       </Tabs>
       
     </WebSocketContext.Provider>
