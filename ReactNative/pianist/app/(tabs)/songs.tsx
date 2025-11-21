@@ -1,14 +1,14 @@
-//songs.tsx
-import { StyleSheet, Pressable, View, Text } from 'react-native';
+import { StyleSheet, Pressable, View, Text, ImageBackground } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
-
 import { useWs } from "./_layout";
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
+
+import StarWarsImg from '../../assets/images/StarWars1.jpg';
 
 export default function MainScreen() {
   const colorScheme = useColorScheme();
@@ -107,29 +107,35 @@ export default function MainScreen() {
       )}
       
       <View style={styles.buttonsRow}>
-        {buttons.map((b) => (
-          <Pressable
-            key={b.id}
-            disabled={!canControl || status.playing_song === true}
-            onPress={() => onPressSong(b)}
-            style={({ pressed }) => {
-              const baseBg = isDark ? '#00A499' : '#ffffff';
-              const pressedBg = isDark ? '#9b9b9bff' : '#f3f4f6';
-              const border = isDark ? '#374151' : '#e5e7eb';
+        {buttons.map((b) => {
+          const isStarWars = b.label === "Star wars";
 
-              return [
+          return (
+            <Pressable
+              key={b.id}
+              disabled={!canControl || status.playing_song === true}
+              onPress={() => onPressSong(b)}
+              style={({ pressed }) => [
                 styles.btn,
-                {
-                  backgroundColor: pressed ? pressedBg : baseBg,
-                  borderColor: baseBg,
-                },
-                !canControl && styles.btnDisabled,
-              ];
-            }}
-          >
-            <ThemedText style={styles.btnText}>{b.label}</ThemedText>
-          </Pressable>
-        ))}
+                isStarWars && styles.starWarsBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              {isStarWars ? (
+                <ImageBackground
+                  source={StarWarsImg}
+                  resizeMode="cover"
+                  style={styles.starWarsBg}
+                  imageStyle={{ borderRadius: 10 }}
+                >
+                  <Text style={styles.starWarsText}>STAR WARS</Text>
+                </ImageBackground>
+              ) : (
+                <ThemedText style={styles.btnText}>{b.label}</ThemedText>
+              )}
+            </Pressable>
+          );
+        })}
       </View>
 
       {/*<View
@@ -225,5 +231,25 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     color: '#6b7280',
+  },
+  starWarsBtn: {
+    padding: 0,       // žádné vnitřní odsazení
+    overflow: "hidden",
+  },
+
+  starWarsBg: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  starWarsText: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#FFD700",        // zlatá jako Star Wars
+    textShadowColor: "#000",
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
 });
