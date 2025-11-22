@@ -42,7 +42,8 @@ export default function TabLayout() {
     setAdminVisible(false);
     setPassword("");
 
-    router.replace("/(tabs)/Admin"); // ← hlavní oprava
+    router.navigate("/Admin");
+
   } else {
     alert("Špatné heslo");
   }

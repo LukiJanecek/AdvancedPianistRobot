@@ -8,7 +8,9 @@ import { useIsFocused } from '@react-navigation/native';
 import { useWs } from "./_layout";
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 
+import BirthdayImg from '../../assets/images/Birthday.jpg';
 import StarWarsImg from '../../assets/images/StarWars1.jpg';
+import BeethovenImg from '../../assets/images/Beethoven.jpg';
 
 export default function MainScreen() {
   const colorScheme = useColorScheme();
@@ -73,7 +75,7 @@ export default function MainScreen() {
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
       </ThemedText>*/}
 
-      <View style={{ marginTop: 16, gap: 4 }}>
+      {/*<View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
@@ -89,9 +91,9 @@ export default function MainScreen() {
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>*/}
+          </ThemedText>
         </View>
-      </View>
+      </View>*/}
       
       {/*{role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
@@ -108,19 +110,33 @@ export default function MainScreen() {
       
       <View style={styles.buttonsRow}>
         {buttons.map((b) => {
+          const isHappy = b.label === "Happy Birthday";
           const isStarWars = b.label === "Star wars";
+          const isBeeth = b.label === "Beethoven";
 
           return (
-            <Pressable
+           <Pressable
               key={b.id}
               disabled={!canControl || status.playing_song === true}
               onPress={() => onPressSong(b)}
               style={({ pressed }) => [
                 styles.btn,
                 isStarWars && styles.starWarsBtn,
+                isHappy && styles.starWarsBtn,
                 pressed && { opacity: 0.7 },
               ]}
             >
+               {isHappy ? (
+                <ImageBackground
+                  source={BirthdayImg}
+                  resizeMode="cover"
+                  style={styles.starWarsBg}
+                >
+                  <Text style={styles.starWarsText}>Happy Birthday</Text>
+                </ImageBackground>
+              ) : (
+                null
+              )}
               {isStarWars ? (
                 <ImageBackground
                   source={StarWarsImg}
@@ -131,9 +147,23 @@ export default function MainScreen() {
                   <Text style={styles.starWarsText}>STAR WARS</Text>
                 </ImageBackground>
               ) : (
-                <ThemedText style={styles.btnText}>{b.label}</ThemedText>
+                null
+              )}
+              {isBeeth ? (
+                <ImageBackground
+                  source={BeethovenImg}
+                  resizeMode="cover"
+                  style={styles.starWarsBg}
+                  imageStyle={{ borderRadius: 10 }}
+                >
+                  <Text style={styles.starWarsText}>Beethoven</Text>
+                </ImageBackground>
+              ) : (
+                null
               )}
             </Pressable>
+            
+            
           );
         })}
       </View>
@@ -247,9 +277,9 @@ const styles = StyleSheet.create({
   starWarsText: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#FFD700",        // zlatá jako Star Wars
-    textShadowColor: "#000",
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    color: "#ffffffff",        // zlatá jako Star Wars
+    textShadowColor: "#000000ff",
+   // textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 10,
   },
 });
