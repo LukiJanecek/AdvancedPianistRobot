@@ -78,4 +78,4 @@ def root_redirect():
 @app.get("/favicon.ico")
 async def favicon():
     from fastapi.responses import FileResponse
-    return FileResponse("static/piano.ico")
+    return FileResponse("static/LogoVSB.jpg")

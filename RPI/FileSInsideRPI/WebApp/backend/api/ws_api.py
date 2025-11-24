@@ -1,7 +1,7 @@
 # api/ws_api
 import json
 from dataclasses import replace
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
 from datetime import datetime
@@ -46,6 +46,41 @@ async def get_watchers():
                     })
 
     return {"watchers": watchers}
+
+@router_ws.post("/WS/performers/clear")
+async def clear_all_performers():
+    """
+    Admin endpoint pro odpojení všech performerů ve všech místnostech.
+    (ws spojení se zavře, ve ws_endpoint se pak provede leave a presence.)
+    """
+    dropped = await hub.drop_all_performers()
+    return {
+        "status": "ok",
+        "dropped_performers": dropped,
+    }
+
+@router_ws.post("/WS/{room}/takeover")
+async def takeover_performer(
+    room: str,
+    client_id: str = Query(..., description="client_id spojení, které má převzít roli performera"),
+):
+    """
+    Admin endpoint pro převzetí role performera v dané místnosti.
+    - klient s daným client_id se stane performerem
+    - pokud existoval jiný performer, je přeřazen na watcher
+    """
+    ok = await hub.force_takeover(room, client_id)
+    if not ok:
+        raise HTTPException(
+            status_code=404,
+            detail="Místnost nebo client_id nenalezen (nebo klient už je performerem)."
+        )
+
+    return {
+        "status": "ok",
+        "room": room,
+        "new_performer": client_id,
+    }
 
 
 API_TOKEN = "demo-token"
