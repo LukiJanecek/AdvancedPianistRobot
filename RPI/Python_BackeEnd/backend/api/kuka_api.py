@@ -1,8 +1,10 @@
-# api/service_api.py
+# api/kuka_api.py
 from fastapi import APIRouter, Header, HTTPException, Query
 from typing import Literal
 from core.Kuka_robot_config import robot
 import asyncio
+
+from services.shadow_watchdog import register_activity, stop_shadow
 
 router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
@@ -70,21 +72,33 @@ async def play_song(song: int = Query(...)):
 @router_kuka.post("/startShadowing")
 async def start_shadowing():
     if not await robot.KUKA_IsConnected():
-        print("[KUKA] Not connected, cannot start shadowing")
-        raise HTTPException(400, "Not connected")
-    ok = await robot.start_shadow_mode()
-    if not ok:
-        raise HTTPException(504, "Start shadowing timeout")
+        msg = "[KUKA] Not connected, cannot stop shadowing"
+        print(msg)
+        return {"ok": False, "error": msg}
+
+    print("[KUKA] /startShadowing - calling register_activity()")
+    try:
+        await register_activity()
+    except Exception as e:
+        print(f"[KUKA] /startShadowing - register_activity ERROR: {e}")
+        return {"ok": False, "error": f"register_activity failed: {e}"}
+
     return {"ok": True}
 
 @router_kuka.post("/stopShadowing")
 async def stop_shadowing():
     if not await robot.KUKA_IsConnected():
-        print("[KUKA] Not connected, cannot stop shadowing")
-        raise HTTPException(400, "Not connected")
-    ok = await robot.stop_shadow_mode()
-    if not ok:
-        raise HTTPException(504, "Stop shadowing timeout")
+        msg = "[KUKA] Not connected, cannot stop shadowing"
+        print(msg)
+        return {"ok": False, "error": msg}
+
+    print("[KUKA] /stopShadowing - calling stop_shadow()")
+    try:
+        await stop_shadow()
+    except Exception as e:
+        print(f"[KUKA] /stopShadowing - stop_shadow ERROR: {e}")
+        return {"ok": False, "error": f"stop_shadow failed: {e}"}
+
     return {"ok": True}
 
 
@@ -170,6 +184,13 @@ async def test_note(
 ):
     if not await robot.KUKA_IsConnected():
         raise HTTPException(400, "Not connected to KUKA")
+    
+    print("[KUKA] /startShadowing - calling register_activity()")
+    try:
+        await register_activity()
+    except Exception as e:
+        print(f"[KUKA] /startShadowing - register_activity ERROR: {e}")
+        return {"ok": False, "error": f"register_activity failed: {e}"}
 
     await robot.KUKA_WriteVar("PyGoToNote", note)
     await asyncio.sleep(2)

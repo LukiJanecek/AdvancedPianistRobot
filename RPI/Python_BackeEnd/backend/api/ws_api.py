@@ -5,6 +5,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPExcept
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
 from datetime import datetime
+from typing import Optional
+
+from services.shadow_watchdog import register_activity
 
 import asyncio
 
@@ -178,6 +181,7 @@ async def ws_endpoint(
                 continue
 
             if data.type == "note_on":
+                await register_activity()
                 print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
                 # Zde můžete přidat další logiku pro note_on
                 asyncio.create_task(robot.play_note(data.note))
