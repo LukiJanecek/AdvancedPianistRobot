@@ -80,7 +80,7 @@ def pipe_line_test(key: int):
         print(f"[SYSTEM][PIPELINE] {msg}")
         return {"status": "error", "detail": msg}
 
-    shifted = key + OFFSET
+    shifted = key + (key-1) + OFFSET
 
     try:
         # 2) Non-blocking open – neblokuje, když není reader

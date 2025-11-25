@@ -354,7 +354,7 @@ class KUKA_Handler:
         print("[KUKA] Spouštím key_and_position_loop...")
 
         try:
-            '''# Jednorázová inicializace FIFO
+            # Jednorázová inicializace FIFO
             if not os.path.exists(PIPE_PATH):
                 try:
                     os.mkfifo(PIPE_PATH)
@@ -362,7 +362,7 @@ class KUKA_Handler:
                 except FileExistsError:
                     pass
                 except OSError as e:
-                    print(f"[KUKA][KEYPOSLOOP] Chyba při vytváření FIFO: {e}")'''
+                    print(f"[KUKA][KEYPOSLOOP] Chyba při vytváření FIFO: {e}")
 
             while True:
                 
@@ -393,7 +393,7 @@ class KUKA_Handler:
                         z_pos = pose.get("Z")
                         if z_pos is not None:
                             #print(f"[KUKA][KEYPOSLOOP] Z position: {z_pos:.3f}")
-                            if z_pos < 25:
+                            if z_pos < 0:
                                 print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
 
                                 key = await self.KUKA_ReadVar("PyKey")
@@ -419,9 +419,17 @@ class KUKA_Handler:
 
                                 try:
                                     if isinstance(key, (bytes, bytearray)):
-                                        key_int = int(key.decode().strip())
+                                        key_str = key.decode().strip()
                                     else:
-                                        key_int = int(key)
+                                        key_str = str(key).strip()
+
+                                    # 2) pokus o převod:
+                                    #    - když obsahuje ".", vezmeme to jako float a pak na int
+                                    #    - jinak přímo int
+                                    if "." in key_str:
+                                        key_int = int(float(key_str))   # např. "12.0000" -> 12
+                                    else:
+                                        key_int = int(key_str)
 
                                     # sem můžeš přidat ještě rozsah, např. jen 1–88:
                                     if not (1 <= key_int <= 23):
@@ -429,7 +437,7 @@ class KUKA_Handler:
                                         await asyncio.sleep(0.12)
                                         continue
 
-                                    shifted = key_int + OFFSET
+                                    shifted = key_int + (key_int-1) + OFFSET
 
                                 except (ValueError, TypeError) as e:
                                     print(f"[KUKA][KEYPOSLOOP] Neplatná hodnota PyKey ({key}): {e}")
