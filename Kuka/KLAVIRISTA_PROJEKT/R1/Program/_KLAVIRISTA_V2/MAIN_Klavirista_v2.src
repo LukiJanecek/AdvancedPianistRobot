@@ -1,5 +1,5 @@
-&ACCESS RVO
-&REL 273
+&ACCESS RVP
+&REL 277
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
 &PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2
@@ -73,16 +73,16 @@ PyPlayingSong = TRUE
 SONG_3()
 ENDIF
 
-WHILE PyShadow THEN
+WHILE PyShadow
 
   PyShadowFb = TRUE
 
  ;PTP SHADOW
 
-  IF PyGoToNote > 0 THEN
+  IF PyGoToNote > 0 then
     PLAYRT(PyGoToNote,0)
   ENDIF
-ENDIF
+ENDWHILE
 
 PyShadowFb = FALSE
 PyPlayingSong = FALSE

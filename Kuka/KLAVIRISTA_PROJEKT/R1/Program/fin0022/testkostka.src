@@ -1,5 +1,5 @@
 &ACCESS RVO
-&REL 20
+&REL 22
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
 &PARAM DISKPATH = KRC:\R1\Program\fin0022
@@ -16,7 +16,14 @@ DEF testkostka( )
   ;ENDFOLD (USER INI)
 ;ENDFOLD (INI)
 
-
+GRIPPER(1,FALSE)
+HALT
+GRIPPER(2,FALSE)
+HALT
+GRIPPER(3,FALSE)
+HALT
+GRIPPER(4,FALSE)
+HALT
 ;FOLD PTP P1 Vel=100 % PDAT1 Tool[1] Base[0] ;%{PE}
 ;FOLD Parameters ;%{h}
 ;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.old; Kuka.IsGlobalPoint=False; Kuka.PointName=P1; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=PDAT1; Kuka.VelocityPtp=100; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=PTP
