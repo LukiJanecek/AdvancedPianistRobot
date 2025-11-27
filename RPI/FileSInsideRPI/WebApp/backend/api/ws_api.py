@@ -5,6 +5,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPExcept
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
 from datetime import datetime
+from typing import Optional
+
+from services.shadow_watchdog import register_activity
 
 import asyncio
 
@@ -85,6 +88,7 @@ async def takeover_performer(
 
 API_TOKEN = "demo-token"
 VALID_ROLES = {"watcher", "performer"}
+
 
 @router_ws.websocket("/ws")
 async def ws_endpoint(
@@ -176,6 +180,10 @@ async def ws_endpoint(
                 await ws.send_text('{"type":"pong"}')
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
+            
+            # >>>>>> MIDI aktivita → reset timeru + start shadowingu <<<<<<
+            if data.type in ("note_on", "note_off"):
+                await register_activity()
 
             if data.type == "note_on":
                 print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
