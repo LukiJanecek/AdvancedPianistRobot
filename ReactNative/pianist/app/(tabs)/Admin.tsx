@@ -1,4 +1,4 @@
-//songs.tsx
+//admin.tsx
 import { StyleSheet, Pressable, View, Text } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +13,12 @@ import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 import { ROOM } from "../../constants/config";
 
 export default function MainScreen() {
+  const isFocused = useIsFocused();
+
+  // robot connection status
+  const { status, isLoading } = useRobotConnectionPoller(3000, isFocused);
+
+
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
@@ -26,8 +32,6 @@ export default function MainScreen() {
   //const state = "idle";
   //const canControl = false;
 
-  // robot connection status
-  const { status, isLoading } = useRobotConnectionPoller();
   
   const dotColor = isLoading
   ? "#F59E0B"        

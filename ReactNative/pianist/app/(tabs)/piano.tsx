@@ -15,6 +15,10 @@ import { ROOM } from "../../constants/config";
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
+
+  // robot connection status
+  const { status, isLoading } = useRobotConnectionPoller(3000, isFocused);
+
   const deviceRef = useRef<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -22,9 +26,6 @@ export default function MainScreen() {
   // websocket
   const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();
 
-  // robot connection status
-  const { status, isLoading } = useRobotConnectionPoller();
-  
   const dotColor = isLoading
   ? "#F59E0B"        
   : status.online
