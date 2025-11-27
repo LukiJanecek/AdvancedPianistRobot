@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
-
-//import useSWR from "swr";
-//import { SERVER_WS } from "../constants/config"; 
+// hooks/useRobotConnectionPoller.ts
+import { useState, useEffect } from "react";
 import { apiGet } from "../utils/api";
 
 type RobotMode = "idle" | "shadow" | "song" | "error" | undefined;
@@ -22,14 +20,11 @@ export type RobotStatus = {
   port?: number;
   latency_ms?: number | null;
   error?: string | null;
-
-  // doplněné:
   status?: RobotMode;
   detail?: string | null;
   in_shadow_mode?: boolean;
   playing_song?: boolean;
 };
-
 
 const fetcher = async (path: string): Promise<RobotStatus> => {
   const t0 = Date.now();
@@ -41,7 +36,6 @@ const fetcher = async (path: string): Promise<RobotStatus> => {
       port: raw.port,
       latency_ms: Date.now() - t0,
       error: null,
-
       status: raw.status,
       detail: raw.detail,
       in_shadow_mode: raw.in_shadow_mode,
@@ -58,7 +52,10 @@ const fetcher = async (path: string): Promise<RobotStatus> => {
   }
 };
 
-export function useRobotConnectionPoller(intervalMs: number = 3000) {
+export function useRobotConnectionPoller(
+  intervalMs: number = 3000,
+  isActive: boolean = true
+) {
   const [status, setStatus] = useState<RobotStatus>({
     online: false,
     error: "No data",
@@ -68,50 +65,34 @@ export function useRobotConnectionPoller(intervalMs: number = 3000) {
 
   useEffect(() => {
     let isMounted = true;
-    let timer: ReturnType<typeof setInterval> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    if (!isActive) {
+      // když screen není aktivní → nic nepollujeme
+      setIsLoading(true);
+      return () => {};
+    }
 
     const poll = async () => {
-      const result = await fetcher("/Kuka/status"); 
+      console.log("[POLL] /Kuka/status ->", new Date().toISOString());
+
+      const result = await fetcher("/Kuka/status");
       if (!isMounted) return;
 
       setStatus(result);
       setIsLoading(false);
+
+      timeout = setTimeout(poll, intervalMs);
     };
 
     // první načtení hned
     poll();
-    // periodický polling
-    timer = setInterval(poll, intervalMs);
 
     return () => {
       isMounted = false;
-      if (timer) {
-        clearInterval(timer);
-      }
+      if (timeout) clearTimeout(timeout);
     };
-  }, [intervalMs]);
+  }, [intervalMs, isActive]);
 
   return { status, isLoading };
 }
-
-/*
-export function useRobotConnectionPollerSWR() {
-  const { data, error, isLoading } = useSWR<RobotStatus>(
-    "/robot/status",
-    fetcher,
-    {
-      refreshInterval: 2000,    
-      revalidateOnFocus: true,   
-      shouldRetryOnError: true,  
-    }
-  );
-
-  return {
-    status: data ?? { online: false, error: "No data" },
-    isLoading,
-    isError: error,
-  };
-}
-*/
-
-

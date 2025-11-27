@@ -1,4 +1,4 @@
-import { StyleSheet, Pressable, View, Text, ImageBackground } from 'react-native';
+import { StyleSheet, Pressable, ScrollView, View, Text, ImageBackground } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,6 +13,11 @@ import StarWarsImg from '../../assets/images/StarWars1.jpg';
 import BeethovenImg from '../../assets/images/Beethoven.jpg';
 
 export default function MainScreen() {
+  const isFocused = useIsFocused();
+
+  // robot connection status
+  const { status, isLoading } = useRobotConnectionPoller(3000, isFocused);
+
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
@@ -25,9 +30,6 @@ export default function MainScreen() {
   //const role = "tester";
   //const state = "idle";
   //const canControl = false;
-
-  // robot connection status
-  const { status, isLoading } = useRobotConnectionPoller();
   
   const dotColor = isLoading
   ? "#F59E0B"        
@@ -70,10 +72,17 @@ export default function MainScreen() {
       {/*<ThemedText style={styles.text}>
         Zvol si svou písničku a odešli na KUKA robota.
       </ThemedText>*/}
-
-     {/* <ThemedText style={styles.text}>
+      <ThemedText style={{ opacity: 0.8 }}>
+            {isLoading
+              ? "Kontroluji připojení…"
+              : `Target: ${status.ip ?? "unknown"}${
+                  status.port ? `:${status.port}` : ""
+                }`}
+          </ThemedText>
+      <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
-      </ThemedText>*/}
+      </ThemedText>
+      
 
       {/*<View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -95,9 +104,9 @@ export default function MainScreen() {
         </View>
       </View>*/}
       
-      {/*{role === 'undefined' && (
+      {role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
-      )}*/}
+      )}
       {role !== 'performer' && role !== 'undefined' && (
         <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
@@ -115,7 +124,11 @@ export default function MainScreen() {
           const isBeeth = b.label === "Beethoven";
 
           return (
-           <Pressable
+           <ScrollView
+          style={styles.keysScroller} 
+          //contentContainerStyle={[styles.keysRow, { paddingBottom: 12 }]}
+          showsHorizontalScrollIndicator={false}>
+            <Pressable
               key={b.id}
               disabled={!canControl || status.playing_song === true}
               onPress={() => onPressSong(b)}
@@ -162,6 +175,7 @@ export default function MainScreen() {
                 null
               )}
             </Pressable>
+            </ScrollView>
             
             
           );
@@ -256,6 +270,10 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: '#374151',
+  },
+  keysScroller: {
+    width: '100%',
+    height: '100%',
   },
   footerPayload: {
     marginTop: 6,
