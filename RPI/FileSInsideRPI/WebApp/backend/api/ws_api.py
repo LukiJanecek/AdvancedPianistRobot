@@ -89,7 +89,6 @@ async def takeover_performer(
 API_TOKEN = "demo-token"
 VALID_ROLES = {"watcher", "performer"}
 
-
 @router_ws.websocket("/ws")
 async def ws_endpoint(
     ws: WebSocket,
@@ -180,12 +179,9 @@ async def ws_endpoint(
                 await ws.send_text('{"type":"pong"}')
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
-            
-            # >>>>>> MIDI aktivita → reset timeru + start shadowingu <<<<<<
-            if data.type in ("note_on", "note_off"):
-                await register_activity()
 
             if data.type == "note_on":
+                await register_activity()
                 print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
                 # Zde můžete přidat další logiku pro note_on
                 asyncio.create_task(robot.play_note(data.note))
