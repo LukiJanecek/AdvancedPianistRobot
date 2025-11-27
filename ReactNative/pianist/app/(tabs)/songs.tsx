@@ -1,4 +1,4 @@
-import { StyleSheet, Pressable, View, Text, ImageBackground } from 'react-native';
+import { StyleSheet, Pressable, ScrollView, View, Text, ImageBackground } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -115,7 +115,11 @@ export default function MainScreen() {
           const isBeeth = b.label === "Beethoven";
 
           return (
-           <Pressable
+           <ScrollView
+          style={styles.keysScroller} 
+          //contentContainerStyle={[styles.keysRow, { paddingBottom: 12 }]}
+          showsHorizontalScrollIndicator={false}>
+            <Pressable
               key={b.id}
               disabled={!canControl || status.playing_song === true}
               onPress={() => onPressSong(b)}
@@ -162,6 +166,7 @@ export default function MainScreen() {
                 null
               )}
             </Pressable>
+            </ScrollView>
             
             
           );
@@ -256,6 +261,10 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: '#374151',
+  },
+  keysScroller: {
+    width: '100%',
+    height: '100%',
   },
   footerPayload: {
     marginTop: 6,
