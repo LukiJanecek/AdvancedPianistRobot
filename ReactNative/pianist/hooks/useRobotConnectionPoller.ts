@@ -74,7 +74,7 @@ export function useRobotConnectionPoller(
     }
 
     const poll = async () => {
-      console.log("[POLL] /Kuka/status ->", new Date().toISOString());
+      //console.log("[POLL] /Kuka/status ->", new Date().toISOString());
 
       const result = await fetcher("/Kuka/status");
       if (!isMounted) return;

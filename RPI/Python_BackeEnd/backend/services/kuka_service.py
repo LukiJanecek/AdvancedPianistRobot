@@ -187,11 +187,11 @@ class KUKA_Handler:
                         return False
                     return res
 
-                print(f"[KUKA][READ] {var}: prázdná odpověď (None), pokus {attempt}/{retries}")
+                #print(f"[KUKA][READ] {var}: prázdná odpověď (None), pokus {attempt}/{retries}")
 
             except Exception as e:
                 last_exc = e
-                print(f"[KUKA][READ] Chyba při čtení {var}, pokus {attempt}/{retries}: {e}")
+                #print(f"[KUKA][READ] Chyba při čtení {var}, pokus {attempt}/{retries}: {e}")
 
             await asyncio.sleep(delay)
 
@@ -219,11 +219,11 @@ class KUKA_Handler:
                     # OK
                     return True
 
-                print(f"[KUKA][WRITE] {var}={value_str}: žádná ACK odpověď (None), pokus {attempt}/{retries}")
+                #print(f"[KUKA][WRITE] {var}={value_str}: žádná ACK odpověď (None), pokus {attempt}/{retries}")
 
             except Exception as e:
                 last_exc = e
-                print(f"[KUKA][WRITE] Chyba při zápisu {var}={value_str}, pokus {attempt}/{retries}: {e}")
+                #print(f"[KUKA][WRITE] Chyba při zápisu {var}={value_str}, pokus {attempt}/{retries}: {e}")
 
             # počkej a zkus to znovu
             await asyncio.sleep(0.05)
@@ -232,7 +232,7 @@ class KUKA_Handler:
         if last_exc:
             print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech. Poslední exc: {last_exc}")
         else:
-            print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech – robot neodpovídá.")
+            print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech - robot neodpovídá.")
 
         return False
 
@@ -268,13 +268,6 @@ class KUKA_Handler:
             return ok
         except Exception:
             return False
-        finally:
-            try: await self.KUKA_WriteVar("PyGoToNote", False)
-            except Exception: pass
-            try: await self.KUKA_WriteVar("PyNoteNumber", 0)
-            except Exception: pass
-            try: await self.KUKA_WriteVar("PyNoteNumberFb", False)
-            except Exception: pass
 
 
     async def play_song(self, song_number, timeout=30.0, period=0.2) -> bool:
