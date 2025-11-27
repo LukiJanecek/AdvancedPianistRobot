@@ -104,7 +104,10 @@ export default function MainScreen() {
       }
     };
 
-    startShadowing();
+    {role !== "performer" && (
+      startShadowing()
+      )}
+    
 
     return () => {
       cancelled = true;

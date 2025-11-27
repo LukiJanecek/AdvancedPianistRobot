@@ -71,13 +71,13 @@ export default function MainScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Admin ovládání</ThemedText>
-      {/*<ThemedText style={styles.text}>
-        Zvol si svou písničku a odešli na KUKA robota.
-      </ThemedText>*/}
 
-     {/* <ThemedText style={styles.text}>
+     <ThemedText style={[
+            styles.text,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
-      </ThemedText>*/}
+      </ThemedText>
 
       <View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -89,13 +89,13 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          {/*<ThemedText style={{ opacity: 0.8 }}>
+          <ThemedText style={{ opacity: 0.8 }}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>*/}
+          </ThemedText>
         </View>
         </View>
 
@@ -151,11 +151,17 @@ export default function MainScreen() {
 
       </View>
       
-      {/*{role === 'undefined' && (
-        <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
-      )}*/}
+      {role === 'undefined' && (
+        <ThemedText style={[
+            styles.text,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}>Čekám na přiřazení role od serveru…</ThemedText>
+      )}
       {role !== 'performer' && role !== 'undefined' && (
-        <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
+        <ThemedText style={[
+            styles.text,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
 
       {status.playing_song && (
@@ -189,8 +195,7 @@ export default function MainScreen() {
           </Pressable>
         ))}
       </View>*/}
-
-      {/*<View
+      <View
         style={[
           styles.footer,
           { borderColor: isDark ? '#374151' : '#e5e7eb' },
@@ -214,7 +219,7 @@ export default function MainScreen() {
             {JSON.stringify(lastPayload, null, 2)}
           </ThemedText>
         )}
-      </View>*/}
+      </View>
     </ThemedView>
   );
 }
@@ -229,7 +234,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
-    color: '#ffffffff',
+    
   },
   note: {
     marginTop: 6,
