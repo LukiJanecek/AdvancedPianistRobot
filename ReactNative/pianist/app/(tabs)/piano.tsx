@@ -76,6 +76,7 @@ export default function MainScreen() {
     // Shadowing má smysl jen když:
     // - mám právo ovládat (performer + canControl)
     // - robot je online
+
     if (!canControl /*|| !status.online*/ || !isFocused) {
       return;
     }
@@ -104,14 +105,16 @@ export default function MainScreen() {
       }
     };
 
-    {role !== "performer" && (
-      startShadowing()
-      )}
+    if (role == "performer"){
+      startShadowing();
+    }
     
 
     return () => {
+      if (role == "performer"){
       cancelled = true;
       stopShadowing();
+    }
     };
 
   }, [canControl/*, status.online*/, isFocused]); 
