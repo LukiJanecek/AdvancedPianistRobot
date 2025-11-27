@@ -1,5 +1,5 @@
 &ACCESS RVP
-&REL 277
+&REL 281
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
 &PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2
@@ -72,6 +72,15 @@ PyPlayingSong = TRUE
 ;PULSE($OUT[3], TRUE, 0.5)
 SONG_3()
 ENDIF
+IF PyShadow then
+   
+   
+;FOLD SPTP SHADOW CONT Vel=50 % PDAT14 Tool[3]:FINGER Base[1]:Piano ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=SHADOW; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT14; Kuka.VelocityPtp=50; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
+;ENDFOLD
+SPTP XSHADOW WITH $VEL_AXIS[1] = SVEL_JOINT(50.0), $TOOL = STOOL2(FSHADOW), $BASE = SBASE(FSHADOW.BASE_NO), $IPO_MODE = SIPO_MODE(FSHADOW.IPO_FRAME), $LOAD = SLOAD(FSHADOW.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT14), $APO = SAPO_PTP(PPDAT14), $GEAR_JERK[1] = SGEAR_JERK(PPDAT14), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0) C_Spl
+;ENDFOLD
 
 WHILE PyShadow
 
@@ -86,6 +95,8 @@ ENDWHILE
 
 PyShadowFb = FALSE
 PyPlayingSong = FALSE
+
+ENDIF
 
 MoveLeft = NOT MoveLeft
 ENDLOOP
