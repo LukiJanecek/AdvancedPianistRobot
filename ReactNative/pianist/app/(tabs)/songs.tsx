@@ -70,10 +70,17 @@ export default function MainScreen() {
       {/*<ThemedText style={styles.text}>
         Zvol si svou písničku a odešli na KUKA robota.
       </ThemedText>*/}
-
-     {/* <ThemedText style={styles.text}>
+      <ThemedText style={{ opacity: 0.8 }}>
+            {isLoading
+              ? "Kontroluji připojení…"
+              : `Target: ${status.ip ?? "unknown"}${
+                  status.port ? `:${status.port}` : ""
+                }`}
+          </ThemedText>
+      <ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
-      </ThemedText>*/}
+      </ThemedText>
+      
 
       {/*<View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -95,9 +102,9 @@ export default function MainScreen() {
         </View>
       </View>*/}
       
-      {/*{role === 'undefined' && (
+      {role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
-      )}*/}
+      )}
       {role !== 'performer' && role !== 'undefined' && (
         <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}

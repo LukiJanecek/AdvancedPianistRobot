@@ -168,18 +168,18 @@ export default function MainScreen() {
   return (
     <ThemedView style={styles.container}>
      {/*<ThemedText type="title">Piano</ThemedText>*/}
-     {/*<ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>*/}
-      {/*<ThemedText style={styles.text}>
+     <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
+      <ThemedText style={styles.text}>
         
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
         
-      </ThemedText>*/}
+      </ThemedText>
       
-      {/*{role === "undefined" && (
+      {role === "undefined" && (
         <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
           Čekám na přiřazení role od serveru...
         </ThemedText>
-      )}*/}
+      )}
       {role !== "performer" && role !== "undefined" && (
         <ThemedText style={{ marginTop: 6, fontSize: 14 }}>
           Ovládání: Zakázáno
@@ -197,13 +197,13 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          {/*<ThemedText style={{ opacity: 0.8}}>
+          <ThemedText style={{ opacity: 0.8}}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>*/}
+          </ThemedText>
         </View>
       </View>
 
