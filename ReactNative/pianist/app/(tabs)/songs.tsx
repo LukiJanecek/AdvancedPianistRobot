@@ -13,6 +13,11 @@ import StarWarsImg from '../../assets/images/StarWars1.jpg';
 import BeethovenImg from '../../assets/images/Beethoven.jpg';
 
 export default function MainScreen() {
+  const isFocused = useIsFocused();
+
+  // robot connection status
+  const { status, isLoading } = useRobotConnectionPoller(3000, isFocused);
+
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
@@ -25,9 +30,6 @@ export default function MainScreen() {
   //const role = "tester";
   //const state = "idle";
   //const canControl = false;
-
-  // robot connection status
-  const { status, isLoading } = useRobotConnectionPoller();
   
   const dotColor = isLoading
   ? "#F59E0B"        
