@@ -67,11 +67,11 @@ export default function MainScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Admin ovládání</ThemedText>
-      <ThemedText style={styles.text}>
-        Vítej óóó velký admine
-      </ThemedText>
 
-     <ThemedText style={styles.text}>
+     <ThemedText style={[
+            styles.text,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
       </ThemedText>
 
@@ -148,10 +148,16 @@ export default function MainScreen() {
       </View>
       
       {role === 'undefined' && (
-        <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
+        <ThemedText style={[
+            styles.text,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}>Čekám na přiřazení role od serveru…</ThemedText>
       )}
       {role !== 'performer' && role !== 'undefined' && (
-        <ThemedText style={styles.note}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
+        <ThemedText style={[
+            styles.text,
+            { color: isDark ? '#e5e7eb' : '#374151' },
+          ]}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
 
       {status.playing_song && (
@@ -224,7 +230,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
-    color: '#ffffffff',
+    
   },
   note: {
     marginTop: 6,
