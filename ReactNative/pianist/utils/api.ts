@@ -1,29 +1,46 @@
-import {SERVER_URL} from "../constants/config";
+// utils/api.ts
+import { SERVER_URL } from "../constants/config";
 
-export async function apiGet(path : string) {
-  const res = await fetch(`${SERVER_URL}${path}`, { credentials: 'include' });
+export async function apiGet(path: string) {
+  const res = await fetch(`${SERVER_URL}${path}`, { credentials: "include" });
   return parseOrThrow(res);
 }
 
-export async function apiPost(path : string, body : any) {
+export async function apiPost(path: string, body?: any) {
   const res = await fetch(`${SERVER_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(body ?? {}),
   });
   return parseOrThrow(res);
 }
 
-async function parseOrThrow(res : Response) {
+type HttpError = Error & {
+  status?: number;
+  body?: any;
+};
+
+async function parseOrThrow(res: Response) {
   const text = await res.text();
+
   if (!res.ok) {
+    let body: any = null;
+    let message = text || `HTTP ${res.status}`;
+
     try {
-      const j = JSON.parse(text);
-      throw new Error(j.message || JSON.stringify(j));
+      body = text ? JSON.parse(text) : null;
+      if (body?.detail) message = body.detail;
+      else if (body?.message) message = body.message;
     } catch {
-      throw new Error(text || `HTTP ${res.status}`);
+      // text není JSON, necháme default message
     }
+
+    const err: HttpError = new Error(message);
+    err.status = res.status;
+    err.body = body;
+    throw err;
   }
+
   return text ? JSON.parse(text) : null;
 }

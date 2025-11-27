@@ -24,7 +24,9 @@ export default function MainScreen() {
   const isDark = colorScheme === 'dark';
 
   // websocket
-  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();
+  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();4
+
+  //const { send, canControl, role, requestPerformer } = useWs(); // Toto je nova
 
   const dotColor = isLoading
   ? "#F59E0B"        
@@ -77,7 +79,7 @@ export default function MainScreen() {
     // - mám právo ovládat (performer + canControl)
     // - robot je online
 
-    if (!canControl /*|| !status.online*/ || !isFocused) {
+    if (!canControl || !status.online || !isFocused) {
       return;
     }
 
@@ -112,12 +114,12 @@ export default function MainScreen() {
 
     return () => {
       if (role == "performer"){
-      cancelled = true;
-      stopShadowing();
-    }
+        cancelled = true;
+        stopShadowing();
+      }
     };
 
-  }, [canControl/*, status.online*/, isFocused]); 
+  }, [canControl, status.online, isFocused]); 
 
   const WHITE_W = 64; 
   const BLACK_W = 40;

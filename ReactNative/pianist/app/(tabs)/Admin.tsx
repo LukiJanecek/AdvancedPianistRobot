@@ -106,10 +106,10 @@ export default function MainScreen() {
         <Pressable
           onPress={async () => {
             try {
-              const res = await apiPost("/WS/performers/clear", {});
-              console.log("Kick all performers:", res);
+              const res = await apiPost("/WS/kickAll", {});
+              console.log("Kick all members:", res);
             } catch (err: any) {
-              console.error("Kick performers failed:", err);
+              console.error("Kick all members failed:", err);
             }
           }}
           style={({ pressed }) => ({
@@ -120,7 +120,7 @@ export default function MainScreen() {
           })}
         >
           <Text style={{ color: "white", fontWeight: "600" }}>
-            Kick ALL performers
+            Kick ALL Members
           </Text>
         </Pressable>
 

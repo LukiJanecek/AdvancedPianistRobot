@@ -13,7 +13,6 @@ export const SERVER_URL = "http://localhost:8000";
 
 
 
-
 //PRUDUCTION
 //export const SERVER_WS = "ws://192.168.1.104:8000/ws"; //RPI
 //export const SERVER_URL = "http://192.168.1.104:8000";
