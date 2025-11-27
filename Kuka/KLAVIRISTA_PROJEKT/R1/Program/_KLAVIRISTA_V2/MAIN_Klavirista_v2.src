@@ -1,5 +1,5 @@
-&ACCESS RVP
-&REL 281
+&ACCESS RVO
+&REL 283
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
 &PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2
@@ -33,7 +33,7 @@ $OV_PRO=50
 ;;ENDFOLD
 MsgDialog(button, "Nastav rychlost prehravani programu na 50"," Klavirista"," ","Nastaveno")
 
-
+pyShadow = FALSE
 SPTP $POS_ACT WITH $VEL_AXIS[1] = SVEL_JOINT(10.0), $TOOL = STOOL2(FP8), $BASE = SBASE(FP8.BASE_NO), $IPO_MODE = SIPO_MODE(FP8.IPO_FRAME), $LOAD = SLOAD(FP8.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT8), $APO = SAPO_PTP(PPDAT8), $GEAR_JERK[1] = SGEAR_JERK(PPDAT8), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
 
 LOOP
@@ -74,7 +74,7 @@ SONG_3()
 ENDIF
 IF PyShadow then
    
-   
+   PIANO_ON_OFF()
 ;FOLD SPTP SHADOW CONT Vel=50 % PDAT14 Tool[3]:FINGER Base[1]:Piano ;%{PE}
 ;FOLD Parameters ;%{h}
 ;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=SHADOW; Kuka.BlendingEnabled=True; Kuka.MoveDataPtpName=PDAT14; Kuka.VelocityPtp=50; Kuka.VelocityFieldEnabled=True; Kuka.ColDetectFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
@@ -85,6 +85,7 @@ SPTP XSHADOW WITH $VEL_AXIS[1] = SVEL_JOINT(50.0), $TOOL = STOOL2(FSHADOW), $BAS
 WHILE PyShadow
 
   PyShadowFb = TRUE
+  
 
  ;PTP SHADOW
 
@@ -95,6 +96,7 @@ ENDWHILE
 
 PyShadowFb = FALSE
 PyPlayingSong = FALSE
+PIANO_ON_OFF()
 
 ENDIF
 
