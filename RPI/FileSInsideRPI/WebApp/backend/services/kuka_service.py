@@ -169,22 +169,74 @@ class KUKA_Handler:
         async with self.lock:
             return self.connected
 
-    async def KUKA_ReadVar(self, var):
-        if await self.KUKA_IsConnected():
-            res = await asyncio.to_thread(self.client.read, var, False)
-            if res == b'TRUE':
-                return True
-            elif res == b'FALSE':
-                return False
-            return res
-        return False  
+    async def KUKA_ReadVar(self, var: str, retries: int = 3, delay: float = 0.05):
+        if not await self.KUKA_IsConnected():
+            print(f"[KUKA][READ] Není připojeno, nemůžu číst {var}")
+            return None
+
+        last_exc: Exception | None = None
+
+        for attempt in range(1, retries + 1):
+            try:
+                res = await asyncio.to_thread(self.client.read, var, False)
+
+                if res is not None:
+                    if res == b'TRUE':
+                        return True
+                    elif res == b'FALSE':
+                        return False
+                    return res
+
+                print(f"[KUKA][READ] {var}: prázdná odpověď (None), pokus {attempt}/{retries}")
+
+            except Exception as e:
+                last_exc = e
+                print(f"[KUKA][READ] Chyba při čtení {var}, pokus {attempt}/{retries}: {e}")
+
+            await asyncio.sleep(delay)
+
+        if last_exc:
+            print(f"[KUKA][READ] NEÚSPĚCH čtení {var} po {retries} pokusech. Poslední chyba: {last_exc}")
+        else:
+            print(f"[KUKA][READ] NEÚSPĚCH čtení {var} po {retries} pokusech (prázdné odpovědi).")
+
+        return None
+ 
         
-    async def KUKA_WriteVar(self, var, value):
-        if await self.KUKA_IsConnected():
-            await asyncio.to_thread(self.client.KUKA_WriteVar, var, str(value))
-            return True
+    async def KUKA_WriteVar(self, var: str, value, retries: int = 3) -> bool:
+        if not await self.KUKA_IsConnected():
+            print(f"[KUKA][WRITE] Není připojeno, nemůžu zapisovat {var}={value}")
+            return False
+
+        last_exc = None
+        value_str = str(value)
+
+        for attempt in range(1, retries + 1):
+            try:
+                res = await asyncio.to_thread(self.client.KUKA_WriteVar, var, value_str)
+
+                if res is not None:
+                    # OK
+                    return True
+
+                print(f"[KUKA][WRITE] {var}={value_str}: žádná ACK odpověď (None), pokus {attempt}/{retries}")
+
+            except Exception as e:
+                last_exc = e
+                print(f"[KUKA][WRITE] Chyba při zápisu {var}={value_str}, pokus {attempt}/{retries}: {e}")
+
+            # počkej a zkus to znovu
+            await asyncio.sleep(0.05)
+
+        # === všechny pokusy selhaly ===
+        if last_exc:
+            print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech. Poslední exc: {last_exc}")
+        else:
+            print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech – robot neodpovídá.")
+
         return False
 
+  
     async def KUKA_Close(self):
         async with self.lock:
             if self.connected:
@@ -194,25 +246,8 @@ class KUKA_Handler:
             else:
                 return False
 
-    async def go_to_set_of_notes(self, poll_var_fb, cmd_var, timeout=10.0, period=0.2) -> bool:
-        if not await self.KUKA_IsConnected():
-            return False
-        await self.KUKA_WriteVar(cmd_var, True)
 
-        t0 = time.time()
-        while time.time() - t0 < timeout:
-            if await self.KUKA_ReadVar(poll_var_fb):
-                break
-            await asyncio.sleep(period)
-        else:
-            await self.KUKA_WriteVar(cmd_var, False)
-            return False
-        # reset flags
-        await self.KUKA_WriteVar(cmd_var, False)
-        await self.KUKA_WriteVar(poll_var_fb, False)
-        return True
-
-    async def play_note(self, note_number, duration=30000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
+    async def play_note(self, note_number, duration=5000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
         if not await self.KUKA_IsConnected():
             return False
         
@@ -347,24 +382,35 @@ class KUKA_Handler:
 
     # Asynchronní smyčka pro čtení klávesy a pozice (spojení obou předchozích)
     async def key_and_position_loop_for_CPP(self):
-        """
-        Nekonečná smyčka pro periodické čtení hodnoty PyKey a Z pozice robota.
-        Lze spustit přes: asyncio.create_task(robot.key_and_position_loop()).
-        """
+
         print("[KUKA] Spouštím key_and_position_loop...")
+        
+        last_alive = time.time()
 
         try:
-            '''# Jednorázová inicializace FIFO
-            if not os.path.exists(PIPE_PATH):
-                try:
-                    os.mkfifo(PIPE_PATH)
-                    print(f"[KUKA][KEYPOSLOOP] Vytvořeno FIFO: {PIPE_PATH}")
-                except FileExistsError:
-                    pass
-                except OSError as e:
-                    print(f"[KUKA][KEYPOSLOOP] Chyba při vytváření FIFO: {e}")'''
+            # ------------------------------------------------------------
+            #  MKFIFO vytvoř jen na Linuxu
+            #  (Windows mkfifo NEumí → jen přeskočit, smyčka normálně běží)
+            # ------------------------------------------------------------
+            if os.name != "nt":   # nt = Windows, posix = Linux/macOS
+                if not os.path.exists(PIPE_PATH):
+                    try:
+                        os.mkfifo(PIPE_PATH)
+                        print(f"[KUKA][KEYPOSLOOP] Vytvořeno FIFO: {PIPE_PATH}")
+                    except FileExistsError:
+                        pass
+                    except OSError as e:
+                        print(f"[KUKA][KEYPOSLOOP] mkfifo selhalo: {e}")
+            else:
+                print("[KUKA][KEYPOSLOOP] Windows detekován → mkfifo se přeskočí (OK).")
 
             while True:
+                
+                # --- každých 5 sekund vypiš hlášku ---
+                if time.time() - last_alive >= 5:
+                    print("[KUKA][KEYPOSLOOP] Keyposloop stále běží...")
+                    last_alive = time.time()
+                # -------------------------------------
                 
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
@@ -373,8 +419,14 @@ class KUKA_Handler:
                     continue
 
                 try:
+                    # --- TADY: čtení $POS_ACT s retriem uvnitř KUKA_ReadVar ---
                     pos_raw = await self.KUKA_ReadVar("$POS_ACT")
-                    #print(f"[KUKA][KEYPOSLOOP] Hodnota raw data: {pos_raw}")
+
+                    # Když se to ani po retriích nepovedlo, KUKA_ReadVar už zalogoval detail
+                    if pos_raw is None:
+                        # jen pauza a další pokus v další iteraci smyčky
+                        await asyncio.sleep(0.12)
+                        continue
 
                     # Pokud je to bool (True/False), není to platný string s pozicí
                     if isinstance(pos_raw, bool):
@@ -382,9 +434,9 @@ class KUKA_Handler:
                         await asyncio.sleep(0.12)
                         continue
 
-                    if pos_raw is None or not pos_raw:
-                        # Nic smysluplného – přeskočit
-                        await asyncio.sleep(0.12)
+                    # prázdný string / nesmysl
+                    if not pos_raw:
+                        await asyncio.sleep(0.30)
                         continue
 
                     pose = self.extract_pose(pos_raw)
@@ -465,7 +517,7 @@ class KUKA_Handler:
                     print(f"[KUKA][KEYPOSLOOP] Chyba při čtení PyKey/Zpos: {inner_e}")
 
                 # 4) Interval mezi čteními
-                await asyncio.sleep(0.12)
+                await asyncio.sleep(0.30)
 
         except asyncio.CancelledError:
             print("[KUKA][KEYPOSLOOP] key_and_position_loop ukončena (Cancelled).")
