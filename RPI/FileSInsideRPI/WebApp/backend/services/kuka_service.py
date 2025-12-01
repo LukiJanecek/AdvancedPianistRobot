@@ -140,7 +140,8 @@ class openshowvar(object):
 
 class KUKA_Handler:
     def __init__(self, ipAddress, port):
-        self.lock = asyncio.Lock()
+        self.lock = asyncio.Lock()   
+        self.io_lock = asyncio.Lock()
         self.connected = False
         self.ipAddress = ipAddress
         self.port = port
@@ -170,30 +171,30 @@ class KUKA_Handler:
             return self.connected
 
     async def KUKA_ReadVar(self, var: str, retries: int = 3, delay: float = 0.05):
-        if not await self.KUKA_IsConnected():
-            print(f"[KUKA][READ] Není připojeno, nemůžu číst {var}")
+        # tady už NEpoužíváme await self.KUKA_IsConnected(), protože by se míchaly locky
+        if not self.connected:
+            print(f"[KUKA][READ] Robot není připojený, nemůžu číst {var}")
             return None
 
         last_exc: Exception | None = None
 
-        for attempt in range(1, retries + 1):
-            try:
-                res = await asyncio.to_thread(self.client.read, var, False)
+        # 🔒 VŠECHNA komunikace s openshowvar přes jeden lock
+        async with self.io_lock:
+            for attempt in range(1, retries + 1):
+                try:
+                    res = await asyncio.to_thread(self.client.read, var, False)
 
-                if res is not None:
-                    if res == b'TRUE':
-                        return True
-                    elif res == b'FALSE':
-                        return False
-                    return res
+                    if res is not None:
+                        if res == b'TRUE':
+                            return True
+                        elif res == b'FALSE':
+                            return False
+                        return res
 
-                print(f"[KUKA][READ] {var}: prázdná odpověď (None), pokus {attempt}/{retries}")
+                except Exception as e:
+                    last_exc = e
 
-            except Exception as e:
-                last_exc = e
-                print(f"[KUKA][READ] Chyba při čtení {var}, pokus {attempt}/{retries}: {e}")
-
-            await asyncio.sleep(delay)
+                await asyncio.sleep(delay)
 
         if last_exc:
             print(f"[KUKA][READ] NEÚSPĚCH čtení {var} po {retries} pokusech. Poslední chyba: {last_exc}")
@@ -204,31 +205,26 @@ class KUKA_Handler:
  
         
     async def KUKA_WriteVar(self, var: str, value, retries: int = 3) -> bool:
-        if not await self.KUKA_IsConnected():
+        if not self.connected:
             print(f"[KUKA][WRITE] Není připojeno, nemůžu zapisovat {var}={value}")
             return False
 
         last_exc = None
         value_str = str(value)
 
-        for attempt in range(1, retries + 1):
-            try:
-                res = await asyncio.to_thread(self.client.KUKA_WriteVar, var, value_str)
+        async with self.io_lock:
+            for attempt in range(1, retries + 1):
+                try:
+                    res = await asyncio.to_thread(self.client.KUKA_WriteVar, var, value_str)
 
-                if res is not None:
-                    # OK
-                    return True
+                    if res is not None:
+                        return True
 
-                #print(f"[KUKA][WRITE] {var}={value_str}: žádná ACK odpověď (None), pokus {attempt}/{retries}")
+                except Exception as e:
+                    last_exc = e
 
-            except Exception as e:
-                last_exc = e
-                #print(f"[KUKA][WRITE] Chyba při zápisu {var}={value_str}, pokus {attempt}/{retries}: {e}")
+                await asyncio.sleep(0.05)
 
-            # počkej a zkus to znovu
-            await asyncio.sleep(0.05)
-
-        # === všechny pokusy selhaly ===
         if last_exc:
             print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech. Poslední exc: {last_exc}")
         else:
@@ -322,10 +318,6 @@ class KUKA_Handler:
         return True
     
     async def get_robot_state(self):
-        """
-        Zjistí aktuální stav robota podle proměnných PyShadow a PySong.
-        Vrací dict např. {"status": "shadow"} nebo {"status": "song"} nebo {"status": "idle"}.
-        """
         if not await self.KUKA_IsConnected():
             return {"status": "error", "detail": "Not connected"}
         
@@ -376,7 +368,7 @@ class KUKA_Handler:
     # Asynchronní smyčka pro čtení klávesy a pozice (spojení obou předchozích)
     async def key_and_position_loop_for_CPP(self):
 
-        print("[KUKA] Spouštím key_and_position_loop...")
+        print("[KUKA][KEYPOSLOOP] Spouštím key_and_position_loop...")
         
         last_alive = time.time()
 
@@ -407,7 +399,7 @@ class KUKA_Handler:
                 
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
-                    print("[KUKA][KEYPOSLOOP] Není připojení - čekám na reconnect...")
+                    print("[KUKA][KEYPOSLOOP] Robot není připojený - čekám na reconnect...")
                     await asyncio.sleep(2)
                     continue
 
@@ -516,6 +508,7 @@ class KUKA_Handler:
             print("[KUKA][KEYPOSLOOP] key_and_position_loop ukončena (Cancelled).")
         except Exception as e:
             print(f"[KUKA][KEYPOSLOOP] Neočekávaná chyba v key_and_position_loop: {e}")
+
 
     # Asynchronní smyčka pro připojení k robotu
     async def autoconnecting_loop(self):
