@@ -388,6 +388,61 @@ class RoomHub:
 
         await self._presence(room)
         return True
+    
+
+    async def release_performer(self, room: str) -> Optional[str]:
+        """
+        Uvolní roli performera v dané místnosti:
+        - performer (pokud existuje) se změní na watcher
+        - zastaví se jeho watchdog
+        - všem v místnosti se pošle aktualizovaná presence
+
+        Vrací client_id uvolněného performera, nebo None, pokud žádný není.
+        """
+        async with self.lock:
+            members = self.rooms.get(room)
+            if not members:
+                return None
+
+            performer: Optional[Conn] = None
+            new_members: Set[Conn] = set()
+
+            for m in members:
+                if m.role == "performer" and performer is None:
+                    # našli jsme performera, uděláme novou instanci s role="watcher"
+                    performer = m
+                    demoted = replace(m, role="watcher", inactive=False)
+                    new_members.add(demoted)
+                else:
+                    new_members.add(m)
+
+            if performer is None:
+                # v místnosti není performer
+                return None
+
+            # uložíme novou sadu členů
+            self.rooms[room] = new_members
+
+            # zastavíme watchdog bývalého performera
+            await self._stop_inactivity_watchdog(performer.client_id)
+
+        # mimo lock můžeme tomu klientovi poslat info
+        try:
+            await performer.ws.send_text(json.dumps({
+                "type": "info",
+                "event": "role_changed",
+                "role": "watcher",
+                "reason": "release_performer",
+                "message": "Byl jsi přeřazen na watcher – role performera byla uvolněna.",
+            }, separators=(",", ":")))
+        except Exception:
+            pass
+
+        # přepočítej presence
+        await self._presence(room)
+
+        return performer.client_id
+
 
     # ---------- původní admin force_takeover necháme (beze změny logiky) ----------
 

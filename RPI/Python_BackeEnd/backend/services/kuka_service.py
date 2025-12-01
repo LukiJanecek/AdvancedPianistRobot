@@ -173,7 +173,7 @@ class KUKA_Handler:
     async def KUKA_ReadVar(self, var: str, retries: int = 3, delay: float = 0.05):
         # tady už NEpoužíváme await self.KUKA_IsConnected(), protože by se míchaly locky
         if not self.connected:
-            print(f"[KUKA][READ] Není připojeno, nemůžu číst {var}")
+            print(f"[KUKA][READ] Robot není připojený, nemůžu číst {var}")
             return None
 
         last_exc: Exception | None = None
@@ -399,7 +399,7 @@ class KUKA_Handler:
                 
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
-                    print("[KUKA][KEYPOSLOOP] Není připojení - čekám na reconnect...")
+                    print("[KUKA][KEYPOSLOOP] Robot není připojený - čekám na reconnect...")
                     await asyncio.sleep(2)
                     continue
 

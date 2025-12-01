@@ -42,7 +42,7 @@ async def get_clients():
 
 
 @router_ws.get("/WS/performer")
-async def get_performer():
+async def get_performers():
     performer = []
 
     # Uzamkneme hub, abychom měli konzistentní přístup k rooms
@@ -151,32 +151,18 @@ async def release_performer(
     - změní mu roli zpět na "watcher"
     - tím se uvolní performer role pro dalšího klienta
     """
-    performer_conn = None
+    released_id = await hub.release_performer(room.value)
 
-    # Najdeme performera v dané room
-    async with hub.lock:
-        members = hub.rooms.get(room.value, [])
-        for conn in members:
-            if conn.role == "performer":
-                performer_conn = conn
-                break
+    if released_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"V místnosti '{room.value}' není žádný performer."
+        )
 
-        if not performer_conn:
-            raise HTTPException(
-                status_code=404,
-                detail=f"V místnosti '{room.value}' není žádný performer."
-            )
-
-        # Změníme roli zpět na watcher
-        old_client_id = performer_conn.client_id
-        performer_conn.role = "watcher"
-
-    # Mimo lock můžeme případně do budoucna poslat notifikaci do room
-    # (teď jen vrátíme info)
     return {
         "status": "ok",
         "room": room.value,
-        "released_client_id": old_client_id,
+        "released_client_id": released_id,
         "new_role": "watcher",
     }
 
