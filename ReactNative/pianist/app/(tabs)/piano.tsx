@@ -5,13 +5,12 @@ import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-
 import { apiGet, apiPost } from '@/utils/api';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 import { useWs } from "./_layout";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-
 import { ROOM } from "../../constants/config";
+import { router } from "expo-router";
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -24,7 +23,7 @@ export default function MainScreen() {
   const isDark = colorScheme === 'dark';
 
   // websocket
-  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();4
+  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId, releasePerformer } = useWs();
 
   //const { send, canControl, role, requestPerformer } = useWs(); // Toto je nova
 
@@ -72,13 +71,9 @@ export default function MainScreen() {
       }
     }
   }, [events]);
-    
-  // 2) Shadowing – start/stop podle možnosti ovládat a připojení robota
-  useEffect(() => {
-    // Shadowing má smysl jen když:
-    // - mám právo ovládat (performer + canControl)
-    // - robot je online
 
+
+  useEffect(() => {
     if (!canControl || !status.online || !isFocused) {
       return;
     }
@@ -173,8 +168,11 @@ export default function MainScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <ThemedText style={styles.btnText}>
+                  role: {role}
+                </ThemedText>
      {/*<ThemedText type="title">Piano</ThemedText>*/}
-     <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
+     {/*<ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
       <ThemedText style={styles.text}>
         
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
@@ -191,8 +189,7 @@ export default function MainScreen() {
           Ovládání: Zakázáno
         </ThemedText>
       )}
-      
-      
+      */}
       <View style={{ gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
@@ -203,15 +200,38 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          <ThemedText style={{ opacity: 0.8}}>
+         {/* <ThemedText style={{ opacity: 0.8}}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
+          </ThemedText>*/}
         </View>
       </View>
+
+      <View style={{ paddingTop: 10}}>
+      <Pressable
+                onPress={async () => {
+                  try {
+                      releasePerformer();
+                      router.navigate("/Main");
+                  }catch (err: any) {
+                    console.error(" failed:", err);
+                  }
+                }}
+                style={({ pressed }) => ({
+                  padding: 12,
+                  borderRadius: 8,
+                  backgroundColor: pressed ? "#004f49ff" : "#00A499",
+                  alignItems: "center",
+                })}
+              >
+                <Text style={styles.btnText}>
+                  Ukončit hraní
+                </Text>
+              </Pressable>
+              </View>
 
       <View style={styles.keysWrap}>
         <ScrollView 
@@ -390,5 +410,9 @@ logo: {
   width: 50,
   height: 50,
 },
+btnText: {
+    fontSize: 20,
+    color: '#ffffffff',
+  },
 
 });
