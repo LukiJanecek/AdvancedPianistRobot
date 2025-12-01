@@ -136,36 +136,24 @@ class RoomHub:
 
     async def join(self, room: str, c: Conn) -> bool:
         """
-        Přidá klienta do místnosti jako watcher (performer řešíme zvlášť).
-        Zakazuje víc spojení ze stejného device/IP (staré kopy vyhodí).
+        - Přidá klienta do místnosti jako watcher (performer řešíme zvlášť).
+        - Pokud už existuje jakékoli WS spojení ze stejné IP adresy (v libovolné místnosti),
+          nové připojení se ZAMÍTNE (vrátí False) a socket se neacceptne.
         """
         async with self.lock:
+            # 🔒 Kontrola: existuje už někde spojení z této IP?
+            for room_name, members in self.rooms.items():
+                for m in members:
+                    if m.ip == c.ip:
+                        print(
+                            f"[WS][{c.ip}] Připojení ZAMÍTNUTO - IP už má aktivní websocket "
+                            f"v místnosti '{room_name}'."
+                        )
+                        # nevoláme accept(), necháváme ws_endpoint vyřešit zavření
+                        return False
+
+            # IP je volná → normálně přidáme do požadované room
             members = self.rooms.setdefault(room, set())
-
-            # Zákaz více spojení se stejným device nebo IP
-            same_device_or_ip = [
-                m for m in members
-                if (m.device == c.device) or (m.ip == c.ip)
-            ]
-
-            for old in same_device_or_ip:
-                try:
-                    await old.ws.send_text(json.dumps({
-                        "type": "info",
-                        "event": "replaced",
-                        "reason": "same_device_or_ip",
-                        "message": "Byl jsi odpojen, protože se připojilo nové spojení ze stejného zařízení/IP.",
-                    }, separators=(",", ":")))
-                except Exception:
-                    pass
-                try:
-                    await old.ws.close(code=4400)
-                except Exception:
-                    pass
-                members.discard(old)
-                # pro jistotu zabij i watchdog
-                await self._stop_inactivity_watchdog(old.client_id)
-
             members.add(c)
 
         # WS accept až po zapsání do struktury
