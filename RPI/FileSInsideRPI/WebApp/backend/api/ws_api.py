@@ -1,22 +1,48 @@
 # api/ws_api
 import json
 from dataclasses import replace
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, Path
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
 from datetime import datetime
-from typing import Optional
+from enum import Enum
 
 from services.shadow_watchdog import register_activity
 
 import asyncio
 
+API_TOKEN = "demo-token"
+VALID_ROLES = {"watcher", "performer"}
+
+class RoomName(str, Enum):
+    kuka_pianist = "kuka_pianist"
+
+
 router_ws = APIRouter(tags=["WebSocket"])
 
 from core.Kuka_robot_config import robot
 
+
+@router_ws.get("/WS/clients")
+async def get_clients():
+    clients = []
+
+    async with hub.lock:
+        for room_name, members in hub.rooms.items():
+            for conn in members:
+                clients.append({
+                    "room": room_name,
+                    "client_id": conn.client_id,
+                    "device": conn.device,
+                    "ip": conn.ip,
+                    "role": conn.role,
+                })
+
+    return {"clients": clients}
+
+
 @router_ws.get("/WS/performer")
-async def get_performer():
+async def get_performers():
     performer = []
 
     # Uzamkneme hub, abychom měli konzistentní přístup k rooms
@@ -28,6 +54,7 @@ async def get_performer():
                         "room": room_name,
                         "client_id": conn.client_id,
                         "device": conn.device,
+                        "ip": conn.ip,
                     })
 
     return {"performer": performer}
@@ -46,33 +73,32 @@ async def get_watchers():
                         "room": room_name,
                         "client_id": conn.client_id,
                         "device": conn.device,
+                        "ip": conn.ip,
                     })
 
     return {"watchers": watchers}
 
-@router_ws.post("/WS/performers/clear")
-async def clear_all_performers():
+
+@router_ws.post("/WS/kickAll")
+async def drop_everyone():
     """
     Admin endpoint pro odpojení všech performerů ve všech místnostech.
     (ws spojení se zavře, ve ws_endpoint se pak provede leave a presence.)
     """
-    dropped = await hub.drop_all_performers()
+    dropped = await hub.drop_everyone()
     return {
         "status": "ok",
-        "dropped_performers": dropped,
+        "dropped": dropped,
     }
 
 @router_ws.post("/WS/{room}/takeover")
 async def takeover_performer(
-    room: str,
+    room: RoomName = Path(
+        ...,
+    ),
     client_id: str = Query(..., description="client_id spojení, které má převzít roli performera"),
 ):
-    """
-    Admin endpoint pro převzetí role performera v dané místnosti.
-    - klient s daným client_id se stane performerem
-    - pokud existoval jiný performer, je přeřazen na watcher
-    """
-    ok = await hub.force_takeover(room, client_id)
+    ok = await hub.force_takeover(room.value, client_id)
     if not ok:
         raise HTTPException(
             status_code=404,
@@ -81,13 +107,65 @@ async def takeover_performer(
 
     return {
         "status": "ok",
-        "room": room,
+        "room": room.value,
         "new_performer": client_id,
     }
 
 
-API_TOKEN = "demo-token"
-VALID_ROLES = {"watcher", "performer"}
+
+@router_ws.post("/WS/{room}/request-performer")
+async def request_performer(
+    room: RoomName = Path(
+        ...,
+    ),
+    client_id: str = Query(..., description="client_id spojení, které žádá roli performera"),
+):
+    """
+    Uživatelský endpoint:
+    - pokud v room není performer -> requester se stane performerem
+    - pokud performer je, ale je neaktivní (15+ s) -> role se mu vezme a requester ji dostane
+    - pokud performer je a aktivní -> 409
+    """
+    ok = await hub.request_performer(room, client_id)
+    if not ok:
+        raise HTTPException(
+            status_code=409,
+            detail="Performer už existuje a je aktivní, nebo klient/místnost neexistuje.",
+        )
+
+    return {
+        "status": "ok",
+        "room": room,
+        "new_performer": client_id,
+    }
+
+@router_ws.post("/WS/{room}/release-performer")
+async def release_performer(
+    room: RoomName = Path(
+        ...,
+    ),
+):
+    """
+    Admin/utility endpoint:
+    - najde v místnosti aktuálního performera
+    - změní mu roli zpět na "watcher"
+    - tím se uvolní performer role pro dalšího klienta
+    """
+    released_id = await hub.release_performer(room.value)
+
+    if released_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"V místnosti '{room.value}' není žádný performer."
+        )
+
+    return {
+        "status": "ok",
+        "room": room.value,
+        "released_client_id": released_id,
+        "new_role": "watcher",
+    }
+
 
 @router_ws.websocket("/ws")
 async def ws_endpoint(
@@ -105,34 +183,18 @@ async def ws_endpoint(
         await ws.close(code=4401)  # Unauthorized
         return
 
-    # 2) Normalizace/validace role
-    role = role.lower().strip()
-    if role not in VALID_ROLES:
-        await ws.close(code=4400)  # Bad Request
-        return
+    # 2) Vždy watcher při připojení
+    role = "watcher"
     
     print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Připojování k místnosti '{room}' jako '{role}' z zařízení '{device}'")
 
     # 3) Vytvoř připojení a pokus se přidat do místnosti
     base_conn = new_conn(ws, device, role, client_ip)
     active_conn = base_conn
-
-    joined = await hub.join(room, active_conn)  # False = např. performer už existuje
-
-    # 3a) Fallback: performer → watcher (pokud performer už existuje)
-    if not joined and role == "performer":
-        
-        try:
-            active_conn = replace(base_conn, role="watcher")
-        except TypeError:
-            # Kdyby to nebyl dataclass (okrajový případ), vytvoř nové připojení jako watcher
-            active_conn = new_conn(ws, device, "watcher")
-
-        joined = await hub.join(room, active_conn)
-
+    
+    joined = await hub.join(room, active_conn)
 
     if not joined:
-        # Nepodařilo se připojit ani po fallbacku
         try:
             await ws.send_text(json.dumps({
                 "type": "error",
@@ -141,14 +203,11 @@ async def ws_endpoint(
             }, separators=(",", ":")))
         except Exception:
             pass
-        await ws.close(code=4403)  # Forbidden
+        await ws.close(code=4403)
         return
-    
-    if active_conn.role == "performer":
-        print(f"[WS][{client_ip}] Novy performer") 
-    else:
-        print(f"[WS][{client_ip}] Performer obsazen.. prirazena role watcher")
-        
+
+    print(f"[WS][{client_ip}] Připojen jako watcher (client_id={active_conn.client_id})")
+
     try:
         await ws.send_text(json.dumps({
             "type": "info",
@@ -168,6 +227,8 @@ async def ws_endpoint(
         while True:
             raw = await ws.receive_text()
             #print(f"[WS][{client_ip}] Přijatý raw:", raw)
+            await hub.mark_activity(room, active_conn.client_id)
+
             # Parsování příchozí zprávy
             if raw.startswith("{"):
                 data = WSIn.model_validate_json(raw)

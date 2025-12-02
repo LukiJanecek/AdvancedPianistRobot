@@ -14,6 +14,10 @@ import { useState } from "react";
 import { Modal, View, TextInput, Button, Text } from "react-native";
 import { useNavigation } from "expo-router";
 import { router } from "expo-router";
+import { useEffect } from "react";
+import { useSegments, useRouter } from "expo-router";
+
+
 
 const WebSocketContext = createContext<ReturnType<typeof useWebSocket> | null>(null);
 export const useWs = () => {
@@ -21,6 +25,7 @@ export const useWs = () => {
   if (!ctx) throw new Error("useWs must be used inside provider");
   return ctx;
 };
+
 
 export const unstable_settings = { initialRouteName: "songs" };
 
@@ -59,8 +64,32 @@ export default function TabLayout() {
   }
 
   // jediná WS instance
-  const ws = useWebSocket({ device: deviceRef.current, desiredRole: "performer", echoSelf: false, enabled: isFocused });
+  const ws = useWebSocket({ device: deviceRef.current, echoSelf: false, enabled: isFocused });
 
+  const { role } = ws ?? {};
+
+  if (role === undefined || role === null) {
+  return null; // nebo loading
+}
+
+  ////////////
+
+const segments = useSegments();
+const router = useRouter();
+
+useEffect(() => {
+  if (!role) return;
+  // Spojí segmenty do cesty, např. ["piano"] → "/piano"
+  const current = "/" + segments.join("/");
+
+  if (role === "undefined" || role === "watcher") {
+    if ((current.includes("piano") || current.includes("songs"))){
+    router.replace("/Main");
+    }
+  }
+}, [role, segments]);
+
+//////////////
   return (
     <WebSocketContext.Provider value={ws}>
       <Tabs
@@ -71,23 +100,34 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="piano"
+          name="Main"
           options={{
-            title: "Piano",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="pianokeys" color={color} />
-            ),
+            title: "Main",
           }}
         />
-        <Tabs.Screen
-          name="songs"
-          options={{
-            title: "Skladby",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="music.note.list" color={color} />
-            ),
-          }}
-        />
+        {role === "performer" && (
+  <Tabs.Screen
+    name="piano"
+    options={{
+      title: "Piano",
+      tabBarIcon: ({ color }) => (
+        <IconSymbol size={28} name="pianokeys" color={color} />
+      ),
+    }}
+  />
+)}
+
+{role === "performer" && (
+  <Tabs.Screen
+    name="songs"
+    options={{
+      title: "Skladby",
+      tabBarIcon: ({ color }) => (
+        <IconSymbol size={28} name="music.note.list" color={color} />
+      ),
+    }}
+  />
+)}
         <Tabs.Screen
   name="Admin"
   options={{
