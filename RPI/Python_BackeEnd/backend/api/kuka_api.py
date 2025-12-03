@@ -1,5 +1,5 @@
 # api/kuka_api.py
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from typing import Literal
 from core.Kuka_robot_config import robot
 import asyncio
@@ -9,11 +9,22 @@ from services.shadow_watchdog import register_activity, stop_shadow
 router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
 
+async def _ensure_connected() -> None:
+    """
+    Helper – zkontroluje připojení robota.
+    Pokud není připojen, vyhodí HTTP 503.
+    """
+    if not await robot.KUKA_IsConnected():
+        raise HTTPException(
+            status_code=503,
+            detail="[KUKA] Robot is not connected",
+        )
+
+
 @router_kuka.get("/status")
 async def status():
     state = await robot.get_robot_state()
 
-    # odvozene booly
     in_shadow = state.get("status") == "shadow"
     playing_song = state.get("status") == "song"
 
@@ -37,67 +48,72 @@ async def connect():
 
         client = robot.client
         if not client or not client.can_connect:
+            # nepodařilo se navázat spojení – uklidíme a vrátíme 502
             await robot.KUKA_Close()
-            raise HTTPException(502, f"[KUKA] Cannot connect to KUKA at {robot.ipAddress}:{robot.port}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"[KUKA] Cannot connect to KUKA robot at {robot.ipAddress}:{robot.port}",
+            )
 
         print(f"[KUKA] Connected to robot at {robot.ipAddress}:{robot.port}")
         return {"connected": True, "ip": robot.ipAddress, "port": robot.port}
 
+    except HTTPException:
+        # už správně zabalená HTTP chyba – jen ji přeposíláme dál
+        raise
     except Exception as e:
+        # jakákoli jiná výjimka – zavřeme a vrátíme 500
         await robot.KUKA_Close()
-        raise HTTPException(500, f"Connect exception: {e}")
+        raise HTTPException(500, f"[KUKA] Connect exception: {e}")
 
 
 @router_kuka.post("/disconnect")
 async def disconnect():
     try:
         await robot.KUKA_Close()
-        print(f"[KUKA] Disconnected from robot")
+        print("[KUKA] Disconnected from robot")
         return {"connected": False}
-    
+
     except Exception as e:
         print(f"[KUKA] Disconnect failed: {e}")
-        raise HTTPException(500, f"Disconnect exception: {e}")
-    
+        raise HTTPException(500, f"[KUKA] Disconnect exception: {e}")
+
 
 @router_kuka.post("/playSong")
-async def play_song(song: int = Query(...)):
-    if not await robot.KUKA_IsConnected():
-        raise HTTPException(400, "Not connected")
+async def play_song(song: int = Query(..., description="Čísla písniček 1-3")):
+    await _ensure_connected()
+
     ok = await robot.play_song(song_number=song)
     if not ok:
-        raise HTTPException(504, "Song play timeout")
+        raise HTTPException(504, "[KUKA] Song play timeout")
+
     return {"ok": True}
+
 
 @router_kuka.post("/startShadowing")
 async def start_shadowing():
-    if not await robot.KUKA_IsConnected():
-        msg = "[KUKA] Not connected, cannot stop shadowing"
-        print(msg)
-        return {"ok": False, "error": msg}
+    await _ensure_connected()
 
     print("[KUKA] /startShadowing - calling register_activity()")
     try:
         await register_activity()
     except Exception as e:
         print(f"[KUKA] /startShadowing - register_activity ERROR: {e}")
-        return {"ok": False, "error": f"register_activity failed: {e}"}
+        raise HTTPException(500, f"[KUKA] Failed to start shadowing: {e}")
 
     return {"ok": True}
 
+
 @router_kuka.post("/stopShadowing")
 async def stop_shadowing():
-    if not await robot.KUKA_IsConnected():
-        msg = "[KUKA] Not connected, cannot stop shadowing"
-        print(msg)
-        return {"ok": False, "error": msg}
+    await _ensure_connected()
 
     print("[KUKA] /stopShadowing - calling stop_shadow()")
     try:
         await stop_shadow()
     except Exception as e:
         print(f"[KUKA] /stopShadowing - stop_shadow ERROR: {e}")
-        return {"ok": False, "error": f"stop_shadow failed: {e}"}
+        raise HTTPException(500, f"[KUKA] Failed to stop shadowing: {e}")
 
     return {"ok": True}
 
@@ -117,12 +133,12 @@ async def test_write_read(
         "PyMAX_VOLUME",
         "PyEND",
         "PyACK",
-        "PyWait"
+        "PyWait",
+        "PyShadowStart",
     ] = Query(..., description="Název KUKA proměnné"),
-    value: str = Query(..., description="Hodnota jako string, např. 'true', 'false', '123'")
+    value: str = Query(..., description="Hodnota jako string, např. 'true', 'false', '123'"),
 ):
-    if not await robot.KUKA_IsConnected():
-        raise HTTPException(400, "Not connected to KUKA")
+    await _ensure_connected()
 
     # Normalizace bool hodnot pro KUKA (True/False)
     v = value.strip()
@@ -135,7 +151,7 @@ async def test_write_read(
 
     ok = await robot.KUKA_WriteVar(var, norm)
     if not ok:
-        raise HTTPException(500, f"Write to var '{var}' failed")
+        raise HTTPException(500, f"[KUKA] Write to var '{var}' failed")
 
     await asyncio.sleep(0.1)
 
@@ -147,22 +163,25 @@ async def test_write_read(
         "var": var,
         "written": norm,
         "read_back": read_back,
-        "note": "Používej 'true/false' pro Bool nebo číslo pro Int proměnné."
+        "note": "Používej 'true/false' pro Bool nebo číslo pro Int proměnné.",
     }
+
 
 @router_kuka.get("/test/readVar")
 async def test_read_var(
-    var: str = Query(..., description=(
-        "Název proměnné, kterou chceš přečíst z KUKA robota. "
-        "Např. PyShadowFb, PyKey, PyZposFb, PyNotePlayed, $POS_ACT"
-    ))
+    var: str = Query(
+        ...,
+        description=(
+            "Název proměnné, kterou chceš přečíst z KUKA robota. "
+            "Např. PyShadowFb, PyKey, PyZposFb, PyNotePlayed, $POS_ACT"
+        ),
+    )
 ):
     """
     Čte hodnotu z libovolné proměnné na straně KUKA.
     Vhodné pro ruční testování konkrétní proměnné podle názvu.
     """
-    if not await robot.KUKA_IsConnected():
-        raise HTTPException(400, "Not connected to KUKA")
+    await _ensure_connected()
 
     try:
         value = await robot.KUKA_ReadVar(var)
@@ -171,26 +190,25 @@ async def test_read_var(
         return {
             "var": var,
             "value": value,
-            "note": "Pokud proměnná neexistuje nebo je jiného typu, zkontroluj název v KRL programu."
+            "note": "Pokud proměnná neexistuje nebo je jiného typu, zkontroluj název v KRL programu.",
         }
     except Exception as e:
-        raise HTTPException(500, f"Failed to read variable '{var}': {e}")
+        raise HTTPException(500, f"[KUKA] Failed to read variable '{var}': {e}")
 
 
 @router_kuka.get("/test/note")
 async def test_note(
     note: int = Query(..., description="Číslo noty 1-23"),
-    duration: int = Query(5000, description="Délka noty v ms")
+    duration: int = Query(2000, description="Délka noty v ms"),
 ):
-    if not await robot.KUKA_IsConnected():
-        raise HTTPException(400, "Not connected to KUKA")
-    
-    print("[KUKA] /startShadowing - calling register_activity()")
+    await _ensure_connected()
+
+    print("[KUKA] /test/note - calling register_activity()")
     try:
         await register_activity()
     except Exception as e:
-        print(f"[KUKA] /startShadowing - register_activity ERROR: {e}")
-        return {"ok": False, "error": f"register_activity failed: {e}"}
+        print(f"[KUKA] /test/note - register_activity ERROR: {e}")
+        raise HTTPException(500, f"[KUKA] register_activity failed: {e}")
 
     await robot.KUKA_WriteVar("PyGoToNote", note)
     await asyncio.sleep(2)
@@ -209,11 +227,9 @@ async def test_note(
 
 @router_kuka.get("/test/allVars")
 async def test_all_vars():
-    if not await robot.KUKA_IsConnected():
-        raise HTTPException(400, "Not connected to KUKA")
+    await _ensure_connected()
 
-    # ===== Seznam proměnných =====
-    vars = [
+    variable_names = [
         "PyShadow",
         "PyShadowFb",
         "PyGoToNote",
@@ -232,15 +248,14 @@ async def test_all_vars():
 
     results = {}
 
-    for v in vars:
+    for name in variable_names:
         try:
-            val = await robot.KUKA_ReadVar(v)
+            val = await robot.KUKA_ReadVar(name)
             if isinstance(val, bytes):
                 val = val.decode("utf-8", errors="ignore")
-            results[v] = val
+            results[name] = val
         except Exception as e:
-            results[v] = f"Error: {e}"
-
+            results[name] = f"Error: {e}"
 
     return {
         "robot_ip": robot.ipAddress,
