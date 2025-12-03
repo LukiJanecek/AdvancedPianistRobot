@@ -169,39 +169,53 @@ class KUKA_Handler:
     async def KUKA_IsConnected(self):
         async with self.lock:
             return self.connected
+        
+
+    # --- Helper: log fronty čtení/zápisu ---
+    async def _queue_log(self, action: str, var: str):
+        """
+        Vypíše informaci o frontě:
+        - zda čekáme na io_lock
+        - zda nyní probíhá akce
+        """
+        locked = self.io_lock.locked()
+        if locked:
+            print(f"[KUKA][QUEUE] {action} {var}: čekám ve frontě (io_lock = BUSY)")
+        #else:
+            #print(f"[KUKA][QUEUE] {action} {var}: zámek volný, provádím hned")
+
 
     async def KUKA_ReadVar(self, var: str, retries: int = 3, delay: float = 0.05):
-        # tady už NEpoužíváme await self.KUKA_IsConnected(), protože by se míchaly locky
         if not self.connected:
             print(f"[KUKA][READ] Robot není připojený, nemůžu číst {var}")
             return None
 
+        await self._queue_log("ČTENÍ", var)
+
         last_exc: Exception | None = None
 
-        # 🔒 VŠECHNA komunikace s openshowvar přes jeden lock
+        # FRONTOVANÉ — čeká na io_lock
         async with self.io_lock:
+            print(f"[KUKA][READ] >>> Začínám čtení {var}")
+
             for attempt in range(1, retries + 1):
+
                 try:
                     res = await asyncio.to_thread(self.client.read, var, False)
 
                     if res is not None:
-                        if res == b'TRUE':
-                            return True
-                        elif res == b'FALSE':
-                            return False
-                        return res
+                        print(f"[KUKA][READ] <<< HOTOVO {var} = {res}")
+                        return True if res == b"TRUE" else False if res == b"FALSE" else res
 
                 except Exception as e:
+                    print(f"[KUKA][READ] Výjimka při čtení {var}: {e}")
                     last_exc = e
 
                 await asyncio.sleep(delay)
 
-        if last_exc:
-            print(f"[KUKA][READ] NEÚSPĚCH čtení {var} po {retries} pokusech. Poslední chyba: {last_exc}")
-        else:
-            print(f"[KUKA][READ] NEÚSPĚCH čtení {var} po {retries} pokusech (prázdné odpovědi).")
-
+        print(f"[KUKA][READ] !!! SELHÁNÍ čtení {var} po {retries} pokusech")
         return None
+
  
         
     async def KUKA_WriteVar(self, var: str, value, retries: int = 3) -> bool:
@@ -209,28 +223,34 @@ class KUKA_Handler:
             print(f"[KUKA][WRITE] Není připojeno, nemůžu zapisovat {var}={value}")
             return False
 
-        last_exc = None
         value_str = str(value)
+        await self._queue_log("ZÁPIS", var)
 
+        last_exc = None
+
+        # FRONTOVANÉ — čeká na io_lock
         async with self.io_lock:
+            print(f"[KUKA][WRITE] >>> Začínám zápis {var} = {value_str}")
+
             for attempt in range(1, retries + 1):
+                print(f"[KUKA][WRITE] Pokus {attempt}/{retries} o zápis {var}={value_str}")
+
                 try:
                     res = await asyncio.to_thread(self.client.KUKA_WriteVar, var, value_str)
 
                     if res is not None:
+                        print(f"[KUKA][WRITE] <<< HOTOVO {var}={value_str}")
                         return True
 
                 except Exception as e:
+                    print(f"[KUKA][WRITE] Výjimka při zápisu {var}: {e}")
                     last_exc = e
 
                 await asyncio.sleep(0.05)
 
-        if last_exc:
-            print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech. Poslední exc: {last_exc}")
-        else:
-            print(f"[KUKA][WRITE] NEÚSPĚCH zápisu {var}={value_str} po {retries} pokusech - robot neodpovídá.")
-
+        print(f"[KUKA][WRITE] !!! SELHÁNÍ zápisu {var}={value_str} po {retries} pokusech")
         return False
+
 
   
     async def KUKA_Close(self):
