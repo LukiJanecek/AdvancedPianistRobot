@@ -18,7 +18,6 @@ export default function MainScreen() {
   const { status, isLoading } = useRobotConnectionPoller(3000, isFocused);
 
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   
   // websocket
   const { send, presence, role, state, canControl, events, robotState, releasePerformer } = useWs();
@@ -251,6 +250,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 24,
     alignItems: 'center',
+    backgroundColor: '#121212',
   },
   text: {
     marginTop: 8,

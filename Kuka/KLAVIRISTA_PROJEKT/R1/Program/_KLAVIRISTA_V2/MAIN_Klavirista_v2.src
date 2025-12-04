@@ -95,11 +95,12 @@ WHILE PyShadow
   ENDIF
 ENDWHILE
 
-PyShadowFb = FALSE
-PyPlayingSong = FALSE
 PIANO_ON_OFF()
 
 ENDIF
+
+PyShadowFb = FALSE
+PyPlayingSong = FALSE
 
 MoveLeft = NOT MoveLeft
 ENDLOOP

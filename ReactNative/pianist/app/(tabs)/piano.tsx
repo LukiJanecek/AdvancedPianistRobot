@@ -1,5 +1,5 @@
 //piano.tsx
-import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
+import { StyleSheet, ScrollView, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
@@ -11,6 +11,9 @@ import { useWs } from "./_layout";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ROOM } from "../../constants/config";
 import { router } from "expo-router";
+import { Platform } from "react-native";
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Pressable } from 'react-native-gesture-handler';
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -71,7 +74,6 @@ export default function MainScreen() {
       }
     }
   }, [events]);
-
 
   useEffect(() => {
     if (!canControl || !status.online || !isFocused) {
@@ -196,7 +198,7 @@ export default function MainScreen() {
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
           
-          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+          <ThemedText style={{ fontSize: 16, fontWeight: "600",color: '#ffffff' }}>
             {label}
           </ThemedText>
 
@@ -248,19 +250,24 @@ export default function MainScreen() {
         {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
-                  disabled={!canControl}
+                //  disabled={!canControl}
+                  disabled={(!status.in_shadow_mode)}
+                  onPressIn={() => onWhitePressIn(key)}
+                  onPressOut={() => onWhitePressOut(key)}
+                  onLongPress={() => true}
+                  delayLongPress={999999}
+                  android_ripple={null}                      // android
+                  android_disableSound={true}
                   style={({ pressed }) => [
                     styles.whiteKey,
                     {
-                      borderColor: isDark ? '#9ca3af' : '#000000',
+                      borderColor:'#9ca3af',
                       backgroundColor:
                         pressed || pressedKeys[key]
                           ? (isDark ? '#e5e7eb' : '#ddd')
                           : '#ffffff',
                     },
                   ]}
-                  onPressIn={() => onWhitePressIn(key)}
-                  onPressOut={() => onWhitePressOut(key)}
                 >
                   {/*<ThemedText style={styles.keyLabel}>{key}</ThemedText>*/}
                 </Pressable>
@@ -325,6 +332,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#121212',
   },
   text: {
    // marginTop: 20,
