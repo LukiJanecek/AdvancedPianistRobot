@@ -19,15 +19,19 @@ import { useSegments, useRouter } from "expo-router";
 
 
 
+
 const WebSocketContext = createContext<ReturnType<typeof useWebSocket> | null>(null);
+
 export const useWs = () => {
   const ctx = useContext(WebSocketContext);
+  
   if (!ctx) throw new Error("useWs must be used inside provider");
   return ctx;
 };
 
 
-export const unstable_settings = { initialRouteName: "songs" };
+
+export const unstable_settings = { initialRouteName: "Main" };
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -65,6 +69,10 @@ export default function TabLayout() {
 
   // jediná WS instance
   const ws = useWebSocket({ device: deviceRef.current, echoSelf: false, enabled: isFocused });
+
+  const releasePerformer = ws?.releasePerformer ?? (() => {});
+
+  
 
   const { role } = ws ?? {};
 
@@ -104,6 +112,11 @@ useEffect(() => {
           options={{
             title: "Main",
           }}
+          listeners={{
+    tabPress: (e) => {
+      releasePerformer();
+    },
+  }}
         />
         {role === "performer" && (
   <Tabs.Screen
