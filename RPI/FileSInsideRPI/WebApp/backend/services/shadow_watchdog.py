@@ -55,7 +55,7 @@ async def start_shadow_if_needed():
     """
     global shadow_active
     async with shadow_lock:
-        print("[WATCHDOG] Požadavek na START shadowingu")
+        #print("[WATCHDOG] Požadavek na START shadowingu")
 
         # 1) sync s reálným stavem na robotovi
         remote_state = await _read_shadow_flag_from_robot()
@@ -63,20 +63,20 @@ async def start_shadow_if_needed():
             shadow_active = remote_state
 
         if shadow_active:
-            print("[WATCHDOG] Shadow už běží (podle robota) - nic nedělám")
+            #print("[WATCHDOG] Shadow už běží (podle robota) - nic nedělám")
             return
 
         if not await robot.KUKA_IsConnected():
-            print("[WATCHDOG] Robot není připojen, shadowing nezačínám")
+            #print("[WATCHDOG] Robot není připojen, shadowing nezačínám")
             return
 
         # 2) skutečný start
-        print("[WATCHDOG] Posílám start_shadow_mode() do robota...")
+        #print("[WATCHDOG] Posílám start_shadow_mode() do robota...")
         ok = await robot.start_shadow_mode()
 
         if ok:
             shadow_active = True
-            print("[WATCHDOG] ✔ Shadow mode STARTED")
+            #print("[WATCHDOG] ✔ Shadow mode STARTED")
         else:
             print("[WATCHDOG] ✖ Nepodařilo se spustit shadow mode")
 
@@ -97,7 +97,7 @@ async def stop_shadow():
             shadow_active = remote_state
 
         if not shadow_active:
-            print("[WATCHDOG] Shadow už je vypnutý (podle robota) - nic nedělám")
+            #print("[WATCHDOG] Shadow už je vypnutý (podle robota) - nic nedělám")
             return
 
         if not await robot.KUKA_IsConnected():
@@ -105,12 +105,12 @@ async def stop_shadow():
             return
 
         # 2) skutečný stop
-        print("[WATCHDOG] Posílám stop_shadow_mode() do robota...")
+        #print("[WATCHDOG] Posílám stop_shadow_mode() do robota...")
         ok = await robot.stop_shadow_mode()
 
         if ok:
             shadow_active = False
-            print("[WATCHDOG] ✔ Shadow mode STOPPED")
+            #print("[WATCHDOG] ✔ Shadow mode STOPPED")
         else:
             print("[WATCHDOG] ✖ NEPODAŘILO se zastavit shadow mode")
 
@@ -120,11 +120,11 @@ async def _inactivity_watchdog():
     Task, který čeká INACTIVITY_TIMEOUT sekund.
     Pokud není zrušen, po uplynutí času zastaví shadowing.
     """
-    print(f"[WATCHDOG] Inactivity task START - čekám {INACTIVITY_TIMEOUT} s")
+    #print(f"[WATCHDOG] Inactivity task START - čekám {INACTIVITY_TIMEOUT} s")
 
     try:
         await asyncio.sleep(INACTIVITY_TIMEOUT)
-        print("[WATCHDOG] Inactivity TIMEOUT - spouštím stop_shadow()")
+        #print("[WATCHDOG] Inactivity TIMEOUT - spouštím stop_shadow()")
         await stop_shadow()
 
     except asyncio.CancelledError:
@@ -139,13 +139,13 @@ def _reset_inactivity_timer():
     global inactivity_task
 
     if inactivity_task and not inactivity_task.done():
-        print("[WATCHDOG] Ruším předchozí inactivity_task")
+        #print("[WATCHDOG] Ruším předchozí inactivity_task")
         inactivity_task.cancel()
 
     loop = asyncio.get_running_loop()
     inactivity_task = loop.create_task(_inactivity_watchdog())
 
-    print("[WATCHDOG] Reset a nový start inactivity timeru")
+    #print("[WATCHDOG] Reset a nový start inactivity timeru")
 
 
 async def register_activity():

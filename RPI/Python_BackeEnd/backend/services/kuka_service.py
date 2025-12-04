@@ -362,7 +362,37 @@ class KUKA_Handler:
         async with self.song_lock:
             return self.current_song_number
 
-    
+    async def _detect_song_from_krl(self) -> int | None:
+        """
+        Projde proměnné ze SONG_MAP (PyREGGAE, PySTUPNICE, PyBEETHOVEN, ...),
+        a pokud některá z nich je TRUE, vrátí její číslo (key z SONG_MAP).
+        Jinak vrátí None.
+        """
+        for num, var_name in SONG_MAP.items():
+            try:
+                val = await self.KUKA_ReadVar(var_name)
+            except Exception as e:
+                print(f"[KUKA][SONG-DETECT] Chyba při čtení {var_name}: {e}")
+                continue
+
+            # KUKA_ReadVar ti už vrací True/False pro b"TRUE"/b"FALSE",
+            # ale pro jistotu ošetříme i string/bytes.
+            if val is True:
+                return num
+
+            if isinstance(val, (bytes, bytearray)):
+                s = val.decode("utf-8", errors="ignore").strip().upper()
+                if s == "TRUE":
+                    return num
+
+            if isinstance(val, str):
+                if val.strip().upper() == "TRUE":
+                    return num
+
+        return None
+
+
+
     async def _update_state_from_robot(self):
         """
         Interní helper – jednorázově načte stav z robota a uloží ho do cache.
@@ -381,6 +411,14 @@ class KUKA_Handler:
         try:
             is_shadow = await self.KUKA_ReadVar("PyShadowFb")
             is_song = await self.KUKA_ReadVar("PyPlayingSong")
+            shadow_start_raw = await self.KUKA_ReadVar("PyShadowStart")
+            shadow_start = (shadow_start_raw is True)
+
+            current_song_num: int | None = None
+
+            # Pokud KUKA říká, že hraje song, zkusíme zjistit, KTERÝ
+            if is_song is True:
+                current_song_num = await self._detect_song_from_krl()
 
             if is_shadow is True:
                 new_state = {"status": "shadow"}
@@ -389,18 +427,26 @@ class KUKA_Handler:
             else:
                 new_state = {"status": "idle"}
 
+            new_state["shadow_start"] = shadow_start
+
         except Exception as e:
             print(f"[KUKA] Chyba při čtení statusu (poll): {e}")
             new_state = {"status": "error", "detail": str(e)}
+            current_song_num = None
 
         async with self.state_lock:
             prev_status = self._state.get("status")
             self._state = new_state
             self._state_updated_at = time.time()
 
-        # pokud jsme byli "song" a už nejsme -> vynulovat current_song_number
-        if prev_status == "song" and new_state.get("status") != "song":
+        # --- práce s current_song_number podle zjištěného stavu ---
+        if new_state.get("status") == "song":
+            # pokud víme konkrétní song, nastav ho
+            await self.set_current_song(current_song_num)
+        elif prev_status == "song" and new_state.get("status") != "song":
+            # přechod ze stavu "song" do jiného → vynulujeme
             await self.set_current_song(None)
+
     
     async def get_robot_state(self):
         """
@@ -485,6 +531,16 @@ class KUKA_Handler:
                     print("[KUKA][KEYPOSLOOP] Robot není připojený - čekám na reconnect...")
                     await asyncio.sleep(2)
                     continue
+                
+                
+                state = await self.get_robot_state()
+                status = state.get("status")
+
+                # Čteme pozici jen v režimech shadow / song
+                if status not in ("shadow", "song"):
+                    await asyncio.sleep(0.30)
+                    continue
+                
 
                 try:
                     # --- TADY: čtení $POS_ACT s retriem uvnitř KUKA_ReadVar ---
@@ -514,7 +570,7 @@ class KUKA_Handler:
                         if z_pos is not None:
                             #print(f"[KUKA][KEYPOSLOOP] Z position: {z_pos:.3f}")
                             if z_pos < 0:
-                                print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
+                                #print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
 
                                 # --- NOVĚ: nejdřív zjistíme, jestli se hraje song z naší cache ---
                                 state = await self.get_robot_state()
@@ -532,7 +588,7 @@ class KUKA_Handler:
                                     try:
                                         fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
                                         with os.fdopen(fd, "w") as pipe:
-                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílám ČÍSLO SONGU z WS: {song_number}")
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílám číslo songu: {song_number}")
                                             pipe.write(f"{song_number}\n")
                                     except OSError as e:
                                         if e.errno == errno.ENXIO:
@@ -545,7 +601,7 @@ class KUKA_Handler:
 
                                 # --- PŮVODNÍ LOGIKA PRO KLÁVESY, když song NEhraje ---
                                 key = await self.KUKA_ReadVar("PyKey")
-                                print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
+                                #print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
 
                                 # 1) Když je None → nic neposílej, jen log
                                 if key is None:
@@ -581,7 +637,8 @@ class KUKA_Handler:
                                         await asyncio.sleep(0.12)
                                         continue
 
-                                    shifted = key_int + (key_int-1) + OFFSET
+                                    shifted = int(round((key_int + (key_int - 1)) * 1.15 + OFFSET))
+
 
                                 except (ValueError, TypeError) as e:
                                     print(f"[KUKA][KEYPOSLOOP] Neplatná hodnota PyKey ({key}): {e}")
@@ -591,7 +648,7 @@ class KUKA_Handler:
                                     try:
                                         fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
                                         with os.fdopen(fd, "w") as pipe:
-                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílání klávesy: {shifted}")
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] -------------------------------> Odesílání klávesy: {shifted}")
                                             pipe.write(f"{shifted}\n")
                                     except OSError as e:
                                         if e.errno == errno.ENXIO:
