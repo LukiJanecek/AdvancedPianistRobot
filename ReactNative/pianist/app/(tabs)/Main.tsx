@@ -109,11 +109,22 @@ const [waiting, setWaiting] = useState(false);
                 router.navigate("/piano");
               }
               if (role!=="performer") {
-                const res = requestPerformer();
+                const res = await requestPerformer();
+                
+                if (!res.ok) {
+                  if (res.reason === "conflict") {
+                    alert("Již někdo hraje. Počkejte prosím, až skončí.");
+                  } else if (res.reason === "network") {
+                    alert("Chyba připojení. Zkuste to prosím znovu.");
+                  }
+                  return;
+                }
+                
                 setWaiting(true);
               }
             }catch (err: any) {
               console.error("failed:", err);
+              alert("Něco se pokazilo. Zkuste to prosím znovu.");
             }
           }}
           style={({ pressed }) => ({

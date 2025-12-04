@@ -118,29 +118,26 @@ useEffect(() => {
     },
   }}
         />
-        {role === "performer" && (
-  <Tabs.Screen
-    name="piano"
-    options={{
-      title: "Piano",
-      tabBarIcon: ({ color }) => (
-        <IconSymbol size={28} name="pianokeys" color={color} />
-      ),
-    }}
-  />
-)}
-
-{role === "performer" && (
-  <Tabs.Screen
-    name="songs"
-    options={{
-      title: "Skladby",
-      tabBarIcon: ({ color }) => (
-        <IconSymbol size={28} name="music.note.list" color={color} />
-      ),
-    }}
-  />
-)}
+        <Tabs.Screen
+          name="piano"
+          options={{
+            title: "Piano",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="pianokeys" color={color} />
+            ),
+            href: role === "performer" ? "/piano" : null,
+          }}
+        />
+        <Tabs.Screen
+          name="songs"
+          options={{
+            title: "Skladby",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="music.note.list" color={color} />
+            ),
+            href: role === "performer" ? "/songs" : null,
+          }}
+        />
         <Tabs.Screen
   name="Admin"
   options={{
