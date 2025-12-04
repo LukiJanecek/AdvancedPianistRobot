@@ -27,6 +27,7 @@ async def status():
 
     in_shadow = state.get("status") == "shadow"
     playing_song = state.get("status") == "song"
+    song_number = await robot.get_current_song()
 
     return {
         "connected": await robot.KUKA_IsConnected(),
@@ -36,8 +37,9 @@ async def status():
         "detail": state.get("detail"),
         "in_shadow_mode": in_shadow,
         "playing_song": playing_song,
+        "song_number": song_number,
+        "updated_at": state.get("updated_at"),
     }
-
 
 @router_kuka.post("/connect")
 async def connect():
@@ -198,7 +200,7 @@ async def test_read_var(
 
 @router_kuka.get("/test/note")
 async def test_note(
-    note: int = Query(..., description="Číslo noty 1-23"),
+    note: int = Query(..., description="Číslo noty 1-22"),
     duration: int = Query(2000, description="Délka noty v ms"),
 ):
     await _ensure_connected()
@@ -244,6 +246,7 @@ async def test_all_vars():
         "PyACK",
         "PyWait",
         "$POS_ACT",
+        "PyShadowStart",
     ]
 
     results = {}

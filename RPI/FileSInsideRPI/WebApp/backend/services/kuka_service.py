@@ -13,6 +13,7 @@ import errno
 
 from core.PipeLine_config import PIPE_PATH, OFFSET
 
+
 SONG_MAP: dict[int, str] = {
     1: "PyREGGAE",
     2: "PySTUPNICE",
@@ -146,6 +147,18 @@ class KUKA_Handler:
         self.ipAddress = ipAddress
         self.port = port
         self.client = None
+
+        # --- CACHE STAVU ROBOTA ---
+        self.state_lock = asyncio.Lock()
+        self._state: dict[str, Any] = {
+            "status": "error",
+            "detail": "Not connected",
+        }
+        self._state_updated_at: float | None = None
+        
+        # --- INFO O AKTUÁLNÍ PÍSNI (z WebSocketu) ---
+        self.song_lock = asyncio.Lock()
+        self.current_song_number: int | None = None
         
     async def KUKA_Open(self):
         async with self.lock:
@@ -196,7 +209,7 @@ class KUKA_Handler:
 
         # FRONTOVANÉ — čeká na io_lock
         async with self.io_lock:
-            print(f"[KUKA][READ] >>> Začínám čtení {var}")
+            #print(f"[KUKA][READ] >>> Začínám čtení {var}")
 
             for attempt in range(1, retries + 1):
 
@@ -204,7 +217,7 @@ class KUKA_Handler:
                     res = await asyncio.to_thread(self.client.read, var, False)
 
                     if res is not None:
-                        print(f"[KUKA][READ] <<< HOTOVO {var} = {res}")
+                        #print(f"[KUKA][READ] <<< HOTOVO {var} = {res}")
                         return True if res == b"TRUE" else False if res == b"FALSE" else res
 
                 except Exception as e:
@@ -230,16 +243,15 @@ class KUKA_Handler:
 
         # FRONTOVANÉ — čeká na io_lock
         async with self.io_lock:
-            print(f"[KUKA][WRITE] >>> Začínám zápis {var} = {value_str}")
+            #print(f"[KUKA][WRITE] >>> Začínám zápis {var} = {value_str}")
 
             for attempt in range(1, retries + 1):
-                print(f"[KUKA][WRITE] Pokus {attempt}/{retries} o zápis {var}={value_str}")
 
                 try:
                     res = await asyncio.to_thread(self.client.KUKA_WriteVar, var, value_str)
 
                     if res is not None:
-                        print(f"[KUKA][WRITE] <<< HOTOVO {var}={value_str}")
+                        #print(f"[KUKA][WRITE] <<< HOTOVO {var}={value_str}")
                         return True
 
                 except Exception as e:
@@ -263,7 +275,7 @@ class KUKA_Handler:
                 return False
 
 
-    async def play_note(self, note_number, duration=5000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
+    async def play_note(self, note_number=-256, duration=7000, timeout=10.0, period=0.2, ack_var: str = "PyGoToNoteFb") -> bool:
         if not await self.KUKA_IsConnected():
             return False
         
@@ -337,25 +349,74 @@ class KUKA_Handler:
             return False
         return True
     
-    async def get_robot_state(self):
+    async def play_and_track(self, song_num: int):
+        # uložíme číslo aktuálního songu
+        await self.set_current_song(song_num)
+        await self.play_song(song_number=song_num)
+
+    async def set_current_song(self, song_number: int | None):
+        async with self.song_lock:
+            self.current_song_number = song_number
+
+    async def get_current_song(self) -> int | None:
+        async with self.song_lock:
+            return self.current_song_number
+
+    
+    async def _update_state_from_robot(self):
+        """
+        Interní helper – jednorázově načte stav z robota a uloží ho do cache.
+        Volá se jen z periodické smyčky (status_poll_loop), ne z REST endpointu.
+        """
         if not await self.KUKA_IsConnected():
-            return {"status": "error", "detail": "Not connected"}
-        
+            async with self.state_lock:
+                prev_status = self._state.get("status")
+                self._state = {"status": "error", "detail": "Not connected"}
+                self._state_updated_at = time.time()
+            # když ztratíme spojení, vynuluj song
+            if prev_status == "song":
+                await self.set_current_song(None)
+            return
+
         try:
             is_shadow = await self.KUKA_ReadVar("PyShadowFb")
             is_song = await self.KUKA_ReadVar("PyPlayingSong")
 
             if is_shadow is True:
-                return {"status": "shadow"}
+                new_state = {"status": "shadow"}
             elif is_song is True:
-                return {"status": "song"}
+                new_state = {"status": "song"}
             else:
-                return {"status": "error"}
+                new_state = {"status": "idle"}
 
         except Exception as e:
-            print(f"[KUKA] Chyba při čtení statusu: {e}")
-            return {"status": "error", "detail": str(e)}
+            print(f"[KUKA] Chyba při čtení statusu (poll): {e}")
+            new_state = {"status": "error", "detail": str(e)}
+
+        async with self.state_lock:
+            prev_status = self._state.get("status")
+            self._state = new_state
+            self._state_updated_at = time.time()
+
+        # pokud jsme byli "song" a už nejsme -> vynulovat current_song_number
+        if prev_status == "song" and new_state.get("status") != "song":
+            await self.set_current_song(None)
     
+    async def get_robot_state(self):
+        """
+        NEVOLÁ přímo robota – jen vrací poslední známý stav,
+        který si pravidelně aktualizuje status_poll_loop().
+        """
+        async with self.state_lock:
+            state_copy = dict(self._state)
+            ts = self._state_updated_at
+
+        if ts is not None:
+            state_copy["updated_at"] = ts
+        else:
+            state_copy.setdefault("detail", "State not yet polled")
+
+        return state_copy
 
 
     @staticmethod
@@ -411,11 +472,13 @@ class KUKA_Handler:
 
             while True:
                 
+                '''
                 # --- každých 5 sekund vypiš hlášku ---
                 if time.time() - last_alive >= 5:
                     print("[KUKA][KEYPOSLOOP] Keyposloop stále běží...")
                     last_alive = time.time()
-                # -------------------------------------
+                # -------------------------------------¨
+                '''
                 
                 # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
@@ -453,6 +516,34 @@ class KUKA_Handler:
                             if z_pos < 0:
                                 print(f"[KUKA][KEYPOSLOOP] Robot je dole (Z={z_pos:.3f})")
 
+                                # --- NOVĚ: nejdřív zjistíme, jestli se hraje song z naší cache ---
+                                state = await self.get_robot_state()
+                                playing_song = state.get("status") == "song"
+
+                                if playing_song:
+                                    # využij číslo songu z WebSocketu
+                                    song_number = await self.get_current_song()
+
+                                    if song_number is None:
+                                        print("[KUKA][KEYPOSLOOP] status='song', ale current_song_number=None -> nic neposílám")
+                                        await asyncio.sleep(0.12)
+                                        continue
+
+                                    try:
+                                        fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+                                        with os.fdopen(fd, "w") as pipe:
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílám ČÍSLO SONGU z WS: {song_number}")
+                                            pipe.write(f"{song_number}\n")
+                                    except OSError as e:
+                                        if e.errno == errno.ENXIO:
+                                            print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), song se neodeslal.")
+                                        else:
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu songu do FIFO: {e}")
+
+                                    await asyncio.sleep(0.12)
+                                    continue  # při songu už neřešíme klávesy
+
+                                # --- PŮVODNÍ LOGIKA PRO KLÁVESY, když song NEhraje ---
                                 key = await self.KUKA_ReadVar("PyKey")
                                 print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
 
@@ -480,16 +571,12 @@ class KUKA_Handler:
                                     else:
                                         key_str = str(key).strip()
 
-                                    # 2) pokus o převod:
-                                    #    - když obsahuje ".", vezmeme to jako float a pak na int
-                                    #    - jinak přímo int
                                     if "." in key_str:
                                         key_int = int(float(key_str))   # např. "12.0000" -> 12
                                     else:
                                         key_int = int(key_str)
 
-                                    # sem můžeš přidat ještě rozsah, např. jen 1–88:
-                                    if not (1 <= key_int <= 23):
+                                    if not (1 <= key_int <= 22):
                                         print(f"[KUKA][KEYPOSLOOP] PyKey ({key_int}) mimo rozsah -> přeskočeno")
                                         await asyncio.sleep(0.12)
                                         continue
@@ -506,13 +593,12 @@ class KUKA_Handler:
                                         with os.fdopen(fd, "w") as pipe:
                                             print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílání klávesy: {shifted}")
                                             pipe.write(f"{shifted}\n")
-                                            
                                     except OSError as e:
                                         if e.errno == errno.ENXIO:
-                                            # nikdo nečte pipe → daemon neběží
                                             print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), klávesa se neodeslala.")
                                         else:
                                             print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu do FIFO: {e}")
+
                         else:
                             print(f"[KUKA][KEYPOSLOOP] V parsed pose chybí Z: {pose}")
                     else:
@@ -548,3 +634,22 @@ class KUKA_Handler:
 
             except Exception as e:
                 print(f"[KUKA][AUTOCONNECT] Connect failed: {e}")
+
+
+    async def status_poll_loop(self, interval: float = 0.5):
+        """
+        Periodicky tahá stav z robota a ukládá ho do cache.
+        REST /Kuka/status pak vrací jen tuto cache, nekomunikuje přímo s robotem.
+        """
+        print("[KUKA][STATUS-POLL] Spouštím status_poll_loop...")
+        while True:
+            try:
+                await self._update_state_from_robot()
+            except Exception as e:
+                print(f"[KUKA][STATUS-POLL] Neočekávaná chyba při polling stavu: {e}")
+                # při chybě aspoň zapíšeme něco do cache
+                async with self.state_lock:
+                    self._state = {"status": "error", "detail": str(e)}
+                    self._state_updated_at = time.time()
+
+            await asyncio.sleep(interval)
