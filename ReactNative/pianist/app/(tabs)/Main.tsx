@@ -13,6 +13,7 @@ import { useNavigation } from "expo-router";
 import { router } from "expo-router";
 import { Tabs } from "expo-router";
 
+
 export default function MainScreen() {
   const isFocused = useIsFocused();
   const { requestPerformer } = useWs();
@@ -104,15 +105,15 @@ const [waiting, setWaiting] = useState(false);
         <Pressable
           onPress={async () => {
             try {
-              if (role!=='performer') {
+              if (role == "performer") {
+                router.navigate("/piano");
+              }
+              if (role!=="performer") {
                 const res = requestPerformer();
                 setWaiting(true);
               }
-              if (role=='performer') {
-                router.navigate("/piano");
-              }
             }catch (err: any) {
-              console.error(" failed:", err);
+              console.error("failed:", err);
             }
           }}
           style={({ pressed }) => ({

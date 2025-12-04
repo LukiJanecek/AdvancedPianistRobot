@@ -12,6 +12,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ROOM } from "../../constants/config";
 import { router } from "expo-router";
 import { Platform } from "react-native";
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -165,22 +166,6 @@ export default function MainScreen() {
     //send(payloadOff);
     delete blackKeyDownTs.current[k];
   };
-
- useEffect(() => {
-  if (Platform.OS !== "web") return;
-
-  const handler = (e: any) => {
-    e.preventDefault();
-  };
-
-  document.addEventListener("contextmenu", handler);
-  document.addEventListener("selectstart", handler); // blokuje text selection
-
-  return () => {
-    document.removeEventListener("contextmenu", handler);
-    document.removeEventListener("selectstart", handler);
-  };
-}, []);
 
   return (
     <ThemedView style={styles.container}>
