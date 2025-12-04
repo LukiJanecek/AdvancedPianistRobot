@@ -74,7 +74,7 @@ export default function MainScreen() {
 
      <ThemedText style={[
             styles.text,
-            { color: isDark ? '#e5e7eb' : '#374151' },
+            { color: '#e5e7eb' },
           ]}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
       </ThemedText>
@@ -154,13 +154,13 @@ export default function MainScreen() {
       {role === 'undefined' && (
         <ThemedText style={[
             styles.text,
-            { color: isDark ? '#e5e7eb' : '#374151' },
+            { color: '#e5e7eb'},
           ]}>Čekám na přiřazení role od serveru…</ThemedText>
       )}
       {role !== 'performer' && role !== 'undefined' && (
         <ThemedText style={[
             styles.text,
-            { color: isDark ? '#e5e7eb' : '#374151' },
+            { color: '#e5e7eb'},
           ]}>Room už má performera — jsi watcher (ovládání vypnuto).</ThemedText>
       )}
 
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 24,
     alignItems: 'center',
+    backgroundColor: '#121212',
   },
   text: {
     marginTop: 8,

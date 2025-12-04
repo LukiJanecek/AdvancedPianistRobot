@@ -249,18 +249,22 @@ export default function MainScreen() {
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                   disabled={!canControl}
+                  onPressIn={() => onWhitePressIn(key)}
+                  onPressOut={() => onWhitePressOut(key)}
+                  onLongPress={() => true}
+                  delayLongPress={999999}
+                  android_ripple={null}                      // android
+                  android_disableSound={true}
                   style={({ pressed }) => [
                     styles.whiteKey,
                     {
-                      borderColor: isDark ? '#9ca3af' : '#000000',
+                      borderColor:'#9ca3af',
                       backgroundColor:
                         pressed || pressedKeys[key]
                           ? (isDark ? '#e5e7eb' : '#ddd')
                           : '#ffffff',
                     },
                   ]}
-                  onPressIn={() => onWhitePressIn(key)}
-                  onPressOut={() => onWhitePressOut(key)}
                 >
                   {/*<ThemedText style={styles.keyLabel}>{key}</ThemedText>*/}
                 </Pressable>
@@ -325,6 +329,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#121212',
   },
   text: {
    // marginTop: 20,

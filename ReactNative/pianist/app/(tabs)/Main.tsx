@@ -22,7 +22,6 @@ export default function MainScreen() {
 
 
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   
   // websocket
   const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();
@@ -137,6 +136,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 24,
     alignItems: 'center',
+    backgroundColor: '#121212',
   },
   text: {
     marginTop: 8,
