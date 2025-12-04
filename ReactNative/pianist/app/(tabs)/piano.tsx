@@ -1,5 +1,5 @@
 //piano.tsx
-import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
+import { StyleSheet, ScrollView, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
@@ -13,6 +13,7 @@ import { ROOM } from "../../constants/config";
 import { router } from "expo-router";
 import { Platform } from "react-native";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Pressable } from 'react-native-gesture-handler';
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -197,7 +198,7 @@ export default function MainScreen() {
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
           
-          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+          <ThemedText style={{ fontSize: 16, fontWeight: "600",color: '#ffffff' }}>
             {label}
           </ThemedText>
 
@@ -249,7 +250,8 @@ export default function MainScreen() {
         {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
-                  disabled={!canControl}
+                //  disabled={!canControl}
+                  disabled={(!status.in_shadow_mode)}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                   onLongPress={() => true}
