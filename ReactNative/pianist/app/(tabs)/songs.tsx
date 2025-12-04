@@ -153,7 +153,7 @@ export default function MainScreen() {
       
       <ScrollView
           style={styles.keysScroller} 
-          //contentContainerStyle={[styles.keysRow, { paddingBottom: 12 }]}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
           showsHorizontalScrollIndicator={false}>
       <View style={styles.buttonsRow}>
         {buttons.map((b) => {
@@ -267,8 +267,8 @@ const styles = StyleSheet.create({
   },
   buttonsRow: {
     marginTop: 28,
-    width: '50%',
-    height: 200,
+    width: '80%',
+    maxWidth: 600,
     paddingHorizontal: 16,
     gap: 12,
   },
