@@ -24,7 +24,7 @@ export type RobotStatus = {
   detail?: string | null;
   in_shadow_mode?: boolean;
   playing_song?: boolean;
-  
+  shadow_start?: boolean;
 };
 
 const fetcher = async (path: string): Promise<RobotStatus> => {
