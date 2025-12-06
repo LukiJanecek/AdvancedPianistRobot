@@ -76,7 +76,7 @@ export default function MainScreen() {
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
           
-          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+          <ThemedText style={{ fontSize: 16, fontWeight: "600", color: '#ffffff'}}>
             {label}
           </ThemedText>
 
@@ -132,8 +132,8 @@ export default function MainScreen() {
             <Pressable
                       onPress={async () => {
                         try {
-                           releasePerformer();
-                            router.navigate("/Main");
+                           await releasePerformer();
+                            router.replace("/Main");
                         }catch (err: any) {
                           console.error(" failed:", err);
                         }

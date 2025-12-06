@@ -106,7 +106,7 @@ const [waiting, setWaiting] = useState(false);
           onPress={async () => {
             try {
               if (role == "performer") {
-                router.navigate("/piano");
+               await router.replace("/piano");
               }
               if (role!=="performer") {
                 const res = await requestPerformer();
@@ -119,7 +119,6 @@ const [waiting, setWaiting] = useState(false);
                   }
                   return;
                 }
-                
                 setWaiting(true);
               }
             }catch (err: any) {

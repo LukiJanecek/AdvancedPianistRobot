@@ -216,8 +216,8 @@ export default function MainScreen() {
       <Pressable
                 onPress={async () => {
                   try {
-                      releasePerformer();
-                      router.navigate("/Main");
+                      await releasePerformer();
+                      router.replace("/Main");
                   }catch (err: any) {
                     console.error(" failed:", err);
                   }
