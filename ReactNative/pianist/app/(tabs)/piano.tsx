@@ -30,23 +30,22 @@ export default function MainScreen() {
 
   //const { send, canControl, role, requestPerformer } = useWs(); // Toto je nova
 
-  const dotColor = isLoading
-  ? "#F59E0B"        
-  : status.online
-  ? "#22C55E"         
-  : "#EF4444";   
+  const dotColor = isLoading ? "#F59E0B" : status.online ? "#22C55E" : "#EF4444";
+  
+  //const dotColor = "#22C55E";
 
-  const label = isLoading
-    ? "Kontrola připojení..."
-    : status.online
-      ? "Robot připojen"
-      : "Robot odpojen";
+  const label = isLoading ? "Kontrola připojení..." : status.online ? "Robot připojen" : "Robot odpojen";
 
+  //const label = "Robot připojen";
+
+  
   // keys
   const keys = Array.from({ length: 22 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20]; 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
+
+  const [isReleasing, setIsReleasing] = useState(false);
 
   const whiteKeyDownTs = useRef<{ [key: number]: number }>({});
   const blackKeyDownTs = useRef<{ [key: number]: number }>({});
@@ -170,7 +169,7 @@ export default function MainScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.btnText}>
+      {/*<ThemedText style={styles.btnText}>
                   role: {role}
                 </ThemedText>
      {/*<ThemedText type="title">Piano</ThemedText>*/}
@@ -213,27 +212,35 @@ export default function MainScreen() {
       </View>
 
       <View style={{ paddingTop: 10}}>
-      <Pressable
-                onPress={async () => {
-                  try {
-                      await releasePerformer();
-                      router.replace("/Main");
-                  }catch (err: any) {
-                    console.error(" failed:", err);
-                  }
-                }}
-                style={({ pressed }) => ({
-                  padding: 12,
-                  borderRadius: 8,
-                  backgroundColor: pressed ? "#004f49ff" : "#00A499",
-                  alignItems: "center",
-                })}
-              >
-                <Text style={styles.btnText}>
-                  Ukončit hraní
-                </Text>
-              </Pressable>
-              </View>
+        <Pressable
+          disabled={isReleasing}
+          onPress={async () => {
+            if (isReleasing) return;
+            
+            try {
+              setIsReleasing(true);
+              await releasePerformer();
+              await new Promise(resolve => setTimeout(resolve, 300));
+              router.replace("/Main");
+            } catch (err: any) {
+              console.error("Release performer failed:", err);
+            } finally {
+              setIsReleasing(false);
+            }
+          }}
+          style={({ pressed }) => ({
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: isReleasing ? "#888" : (pressed ? "#004f49ff" : "#00A499"),
+            alignItems: "center",
+            opacity: isReleasing ? 0.6 : 1,
+          })}
+        >
+          <Text style={styles.btnText}>
+            {isReleasing ? "Uvolňuji..." : "Ukončit hraní"}
+          </Text>
+        </Pressable>
+        </View>
 
       <View style={styles.keysWrap}>
         <ScrollView 

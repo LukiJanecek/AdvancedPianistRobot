@@ -89,13 +89,13 @@ export default function MainScreen() {
             {label}
           </ThemedText>
 
-          <ThemedText style={styles.text}>
+           {/*<ThemedText style={styles.text}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
+          </ThemedText>*/}
         </View>
         </View>
 
