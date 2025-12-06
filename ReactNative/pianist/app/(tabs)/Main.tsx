@@ -150,7 +150,7 @@ const handleRequestPerformer = async () => {
       <View style={{ marginTop: 120, gap: 12, width: "50%", paddingHorizontal: 20, height: 200}}>
 
         <Pressable
-  disabled={waiting || role === "performer"}
+  disabled={waiting || role === "performer" || !status.shadow_start}
   onPress={handleRequestPerformer}
   style={({ pressed }) => ({
     padding: 16,
