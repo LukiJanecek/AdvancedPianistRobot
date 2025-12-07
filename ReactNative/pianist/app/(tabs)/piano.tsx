@@ -277,7 +277,7 @@ useEffect(() => {
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                 //  disabled={!canControl}
-                  disabled={dissablebutton}
+                  disabled={dissablebutton || status.playing_song}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                   onLongPress={() => true}
