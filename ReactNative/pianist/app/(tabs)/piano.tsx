@@ -258,7 +258,7 @@ export default function MainScreen() {
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                 //  disabled={!canControl}
-                  disabled={(!status.in_shadow_mode)}
+                  disabled={(!status.in_shadow_mode && !status.shadow_auto_stopped)}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                   onLongPress={() => true}

@@ -10,6 +10,14 @@ inactivity_task: Optional[asyncio.Task] = None
 shadow_active: bool = False
 shadow_lock = asyncio.Lock()
 
+_shadow_auto_stopped: bool = False
+
+def get_shadow_auto_stopped() -> bool:
+    """
+    True, pokud byl shadow mode naposledy ukončen AUTOMATICKY
+    kvůli neaktivitě (timeout). Resetuje se při další aktivitě.
+    """
+    return _shadow_auto_stopped
 
 async def _read_shadow_flag_from_robot() -> Optional[bool]:
     """
@@ -25,7 +33,7 @@ async def _read_shadow_flag_from_robot() -> Optional[bool]:
 
     try:
         val = await robot.KUKA_ReadVar("PyShadow")
-        print(f"[WATCHDOG] _read_shadow_flag_from_robot: PyShadow={val!r}")
+        #print(f"[WATCHDOG] _read_shadow_flag_from_robot: PyShadow={val!r}")
 
         # robustní normalizace
         if isinstance(val, bool):
@@ -39,11 +47,11 @@ async def _read_shadow_flag_from_robot() -> Optional[bool]:
         if isinstance(val, (int, float)):
             return bool(val)
 
-        print("[WATCHDOG] _read_shadow_flag_from_robot: neznámý typ hodnoty")
+        #print("[WATCHDOG] _read_shadow_flag_from_robot: neznámý typ hodnoty")
         return None
 
     except Exception as e:
-        print(f"[WATCHDOG] Chyba při čtení PyShadowFb: {e}")
+        #print(f"[WATCHDOG] Chyba při čtení PyShadowFb: {e}")
         return None
 
 
@@ -114,6 +122,14 @@ async def stop_shadow():
         else:
             print("[WATCHDOG] ✖ NEPODAŘILO se zastavit shadow mode")
 
+async def _auto_stop_shadow():
+    """
+    Interní helper, který se používá POUZE při automatickém stopu
+    kvůli neaktivitě (timeout). Nastaví flag _shadow_auto_stopped.
+    """
+    global _shadow_auto_stopped
+    await stop_shadow()
+    _shadow_auto_stopped = True
 
 async def _inactivity_watchdog():
     """
@@ -125,11 +141,10 @@ async def _inactivity_watchdog():
     try:
         await asyncio.sleep(INACTIVITY_TIMEOUT)
         #print("[WATCHDOG] Inactivity TIMEOUT - spouštím stop_shadow()")
-        await stop_shadow()
+        await _auto_stop_shadow()
 
     except asyncio.CancelledError:
         print("[WATCHDOG] Inactivity task CANCELLED - aktivita resetovala timer")
-
 
 def _reset_inactivity_timer():
     """
@@ -154,6 +169,11 @@ async def register_activity():
     - resetne timer
     - zajistí, že shadow mode běží
     """
+    global _shadow_auto_stopped
     print("[WATCHDOG] Registruji aktivitu -> reset timeru + start shadowingu")
+
+    # jakmile je aktivita, auto-stop už není aktuální
+    _shadow_auto_stopped = False
+
     _reset_inactivity_timer()
     await start_shadow_if_needed()

@@ -6,7 +6,8 @@ import asyncio
 
 from services.kuka_service import SONG_MAP  # přidej nahoře import SONG_MAP
 
-from services.shadow_watchdog import register_activity, stop_shadow
+from services.shadow_watchdog import register_activity, stop_shadow, get_shadow_auto_stopped
+
 
 router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
@@ -45,6 +46,7 @@ async def status():
         "song_number": song_number,
         "song_name": song_name,
         "shadow_start": shadow_start,   # <-- pro frontend
+        "shadow_auto_stopped": get_shadow_auto_stopped(),  # <-- TRUE, pokud poslední stop byl timeoutem
         "updated_at": state.get("updated_at"),
     }
 

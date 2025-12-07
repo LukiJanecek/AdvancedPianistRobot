@@ -10,9 +10,8 @@ import asyncio
 import re
 import os
 import errno
-import select
 
-from core.PipeLine_config import PIPE_PATH, OFFSET, ACK_PIPE_PATH
+from core.PipeLine_config import PIPE_PATH, OFFSET
 
 
 SONG_MAP: dict[int, str] = {
@@ -181,7 +180,7 @@ class KUKA_Handler:
                 return True
     
     async def KUKA_IsConnected(self):
-        return self.connected
+            return self.connected
         
 
     # --- Helper: log fronty čtení/zápisu ---
@@ -492,356 +491,224 @@ class KUKA_Handler:
 
         return pose or None
 
-
-    @staticmethod
-    def ensure_fifos():
-        """Vytvoří FIFO soubory, pokud neexistují (jen na POSIX systémech)."""
-        if os.name == "nt":
-            print("[KUKA][KEYPOSLOOP] Windows detected -> FIFOs not created (skipping mkfifo).")
-            return
-
-        try:
-            if not os.path.exists(PIPE_PATH):
-                os.mkfifo(PIPE_PATH, 0o666)
-                print(f"[KUKA][KEYPOSLOOP] Created FIFO: {PIPE_PATH}")
-        except FileExistsError:
-            pass
-        except OSError as e:
-            print(f"[KUKA][KEYPOSLOOP] mkfifo {PIPE_PATH} failed: {e}")
-
-        try:
-            if not os.path.exists(ACK_PIPE_PATH):
-                os.mkfifo(ACK_PIPE_PATH, 0o666)
-                print(f"[KUKA][KEYPOSLOOP] Created ACK FIFO: {ACK_PIPE_PATH}")
-        except FileExistsError:
-            pass
-        except OSError as e:
-            print(f"[KUKA][KEYPOSLOOP] mkfifo {ACK_PIPE_PATH} failed: {e}")
-
-    @staticmethod
-    def try_open_ack_pipe():
-        """Zkusí otevřít ACK pipe pro čtení non-blocking. Vrací fd nebo None."""
-        if os.name == "nt":
-            return None
-        try:
-            fd = os.open(ACK_PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
-            print("[KUKA][KEYPOSLOOP] Opened ACK pipe for reading.")
-            return fd
-        except OSError as e:
-            print(f"[KUKA][KEYPOSLOOP] Could not open ACK pipe for read now: {e}. Will retry later.")
-            return None
-
-    @staticmethod
-    def try_open_write_nb():
-        """Zkusí otevřít write-end DATA pipe non-blocking. Vrací fd nebo None."""
-        try:
-            fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
-            return fd
-        except OSError as e:
-            if e.errno in (errno.ENXIO, errno.ENOENT):
-                # nikdo nečte, nebo pipe ještě není
-                return None
-            else:
-                print(f"[KUKA][KEYPOSLOOP] open write error: {e}")
-                return None
-
-    @staticmethod
-    def drain_ack_for_seq(ack_fd, expected_seq: int) -> bool:
-        """
-        Zkusí non-blocking z ACK fifo vytáhnout ACK:<seq>.
-        Jednoduchá verze: přečte až 1024 B, hledá řádky "ACK:<číslo>".
-        """
-        if ack_fd is None:
-            return False
-
-        try:
-            rlist, _, _ = select.select([ack_fd], [], [], 0.0)
-        except Exception:
-            return False
-
-        if not rlist:
-            return False
-
-        try:
-            data = os.read(ack_fd, 1024)
-        except BlockingIOError:
-            return False
-        except OSError as e:
-            print(f"[KUKA][KEYPOSLOOP] ACK read error: {e}")
-            return False
-
-        if not data:
-            # writer na druhé straně skončil
-            return False
-
-        text = data.decode("utf-8", errors="ignore")
-        for line in text.splitlines():
-            line = line.strip()
-            if line.upper().startswith("ACK:"):
-                try:
-                    got = int(line.split(":", 1)[1])
-                    if got == expected_seq:
-                        return True
-                except Exception:
-                    pass
-        return False
-
-
-    async def send_with_ack(
-        self,
-        seq: int,
-        value: int,
-        ack_fd,
-        *,
-        open_retry_delay: float = 0.05,
-        write_retry_delay: float = 0.05,
-        ack_timeout: float = 1.0,
-        max_retries: int = 3,
-    ) -> bool:
-        """
-        Jednoduchý handshake:
-          - pošli 'seq:value\\n' do PIPE_PATH (non-blocking open)
-          - čekej na 'ACK:seq' z ACK_PIPE_PATH (přes ack_fd) s timeoutem
-          - max_retries opakování
-        Vrací True/False podle toho, zda přišel ACK.
-        """
-        msg = f"{seq}:{value}\n".encode("utf-8")
-
-        attempt = 0
-        while attempt < max_retries:
-            attempt += 1
-
-            # 1) otevřít write-end neblokující (pokud nikdo nečte, vrátí None)
-            wfd = self.try_open_write_nb()
-            if wfd is None:
-                print(f"[KUKA][KEYPOSLOOP][PIPELINE] No reader for DATA pipe, retry open... (attempt {attempt})")
-                await asyncio.sleep(open_retry_delay)
-                continue
-
-            try:
-                os.write(wfd, msg)
-            except Exception as e:
-                print(f"[KUKA][KEYPOSLOOP][PIPELINE] write failed (attempt {attempt}): {e}")
-            finally:
-                try:
-                    os.close(wfd)
-                except Exception:
-                    pass
-
-            # 2) čekání na ACK
-            start_wait = time.time()
-            while time.time() - start_wait < ack_timeout:
-                if self.drain_ack_for_seq(ack_fd, seq):
-                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] ACK for seq={seq}, val={value} received (attempt {attempt})")
-                    return True
-                await asyncio.sleep(0.01)
-
-            print(f"[KUKA][KEYPOSLOOP][PIPELINE] No ACK for seq={seq} (attempt {attempt}), retrying...")
-            await asyncio.sleep(write_retry_delay)
-
-        print(f"[KUKA][KEYPOSLOOP][PIPELINE] FAILED to get ACK after {max_retries} attempts for seq={seq}, val={value}")
-        return False
-
-
-
-    # Asynchronní smyčka pro čtení klávesy a pozice + odesílání do FIFO
+    # Asynchronní smyčka pro čtení klávesy a pozice (spojení obou předchozích)
     async def key_and_position_loop_for_CPP(self):
-        """
-        Async loop:
-          - vytváří FIFO (DATA + ACK)
-          - drží ACK pipe otevřenou pro čtení (non-blocking)
-          - při přechodu Z z >=0 na <0 pošle shifted klávesu
-          - při přechodu Z z <0 na >=0 pošle 0
-          - každý send jde přes jednoduchý handshake seq:value + ACK:seq
-        """
-        print("[KUKA] Spouštím key_and_position_loop...")
 
-        # parametry
-        HEARTBEAT_INTERVAL = 5.0
-        POSE_SLEEP_ON_NONE = 0.12
-        POSE_SLEEP_IF_EMPTY = 0.30
-        MAIN_CYCLE_SLEEP = 0.15
-
+        print("[KUKA][KEYPOSLOOP] Spouštím key_and_position_loop...")
+        
         last_alive = time.time()
-        seq_counter = 0
-        was_down = False  # edge detection: jestli byl robot v minulém cyklu dole
-
-        # vytvořit FIFOs
-        self.ensure_fifos()
-
-        # otevřít ACK pipe (non-blocking)
-        ack_fd = self.try_open_ack_pipe()
+        was_down = False  # NOVĚ: pamatuje si, jestli byl robot v předchozím cyklu dole (Z < 0)
 
         try:
+            # ------------------------------------------------------------
+            #  MKFIFO vytvoř jen na Linuxu
+            #  (Windows mkfifo NEumí → jen přeskočit, smyčka normálně běží)
+            # ------------------------------------------------------------
+            if os.name != "nt":   # nt = Windows, posix = Linux/macOS
+                if not os.path.exists(PIPE_PATH):
+                    try:
+                        os.mkfifo(PIPE_PATH)
+                        print(f"[KUKA][KEYPOSLOOP] Vytvořeno FIFO: {PIPE_PATH}")
+                    except FileExistsError:
+                        pass
+                    except OSError as e:
+                        print(f"[KUKA][KEYPOSLOOP] mkfifo selhalo: {e}")
+            else:
+                print("[KUKA][KEYPOSLOOP] Windows detekován → mkfifo se přeskočí (OK).")
+
             while True:
-                # heartbeat
-                #if time.time() - last_alive >= HEARTBEAT_INTERVAL:
-                #    print("[KUKA][KEYPOSLOOP] Keyposloop stále běží...")
-                #    last_alive = time.time()
-
-                # pokud se ACK pipe zavřela, zkus ji znovu otevřít
-                if ack_fd is None and os.name != "nt":
-                    ack_fd = self.try_open_ack_pipe()
-
-                # 1) kontrola připojení robota
+                
+                '''
+                # --- každých 5 sekund vypiš hlášku ---
+                if time.time() - last_alive >= 5:
+                    print("[KUKA][KEYPOSLOOP] Keyposloop stále běží...")
+                    last_alive = time.time()
+                # -------------------------------------
+                '''
+                
+                # 1) Ověřit připojení
                 if not await self.KUKA_IsConnected():
-                    print("[KUKA][KEYPOSLOOP] Není připojení - čekám na reconnect...")
-                    await asyncio.sleep(2.0)
-                    was_down = False  # bezpečně resetujeme edge stav
+                    print("[KUKA][KEYPOSLOOP] Robot není připojený - čekám na reconnect...")
+                    await asyncio.sleep(2)
+                    continue
+                
+                state = await self.get_robot_state()
+                status = state.get("status")
+
+                # Čteme pozici jen v režimech shadow / song
+                if status not in ("shadow", "song"):
+                    # pokud nejsme ve "hrajícím" režimu, považuj to jako "nahoře"
+                    if was_down:
+                        # PŘECHOD: byl dole → režim skončil → pošli 0
+                        try:
+                            fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+                            with os.fdopen(fd, "w") as pipe:
+                                print("[KUKA][KEYPOSLOOP][PIPELINE] -------------------------------> Odesílám 0 (režim shadow/song skončil)")
+                                pipe.write("0\n")
+                        except OSError as e:
+                            if e.errno == errno.ENXIO:
+                                print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), 0 se neodeslala.")
+                            else:
+                                print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu 0 do FIFO: {e}")
+                        was_down = False
+
+                    await asyncio.sleep(0.30)
                     continue
 
                 try:
-                    # čtení aktuální pozice
+                    # --- TADY: čtení $POS_ACT s retriem uvnitř KUKA_ReadVar ---
                     pos_raw = await self.KUKA_ReadVar("$POS_ACT")
+
+                    # Když se to ani po retriích nepovedlo, KUKA_ReadVar už zalogoval detail
                     if pos_raw is None:
-                        await asyncio.sleep(POSE_SLEEP_ON_NONE)
+                        # jen pauza a další pokus v další iteraci smyčky
+                        await asyncio.sleep(0.12)
                         continue
 
+                    # Pokud je to bool (True/False), není to platný string s pozicí
                     if isinstance(pos_raw, bool):
                         print(f"[KUKA][KEYPOSLOOP] VAROVÁNÍ: $POS_ACT vrátil bool: {pos_raw} -> přeskočeno")
-                        await asyncio.sleep(POSE_SLEEP_ON_NONE)
+                        await asyncio.sleep(0.12)
                         continue
 
+                    # prázdný string / nesmysl
                     if not pos_raw:
-                        await asyncio.sleep(POSE_SLEEP_IF_EMPTY)
+                        await asyncio.sleep(0.30)
                         continue
 
                     pose = self.extract_pose(pos_raw)
-                    if pose is None:
-                        print(f"[KUKA][KEYPOSLOOP] Nelze parsovat pozici z: {pos_raw}")
-                        await asyncio.sleep(MAIN_CYCLE_SLEEP)
-                        continue
+                    
+                    if pose is not None:
+                        z_pos = pose.get("Z")
+                        if z_pos is not None:
+                            # Z < 0 = dole, jinak nahoře
+                            is_down = z_pos < 0
 
-                    z_pos = pose.get("Z")
-                    if z_pos is None:
-                        print(f"[KUKA][KEYPOSLOOP] V parsed pose chybí Z: {pose}")
-                        await asyncio.sleep(MAIN_CYCLE_SLEEP)
-                        continue
+                            # -------------------------------
+                            # 1) PŘECHOD NA "DOLŮ" (edge)
+                            # -------------------------------
+                            if is_down and not was_down:
+                                #print(f"[KUKA][KEYPOSLOOP] Robot šel DOLŮ (Z={z_pos:.3f}) -> pošlu jednou")
 
-                    is_down = z_pos < 0
+                                # --- zjistíme, jestli se hraje song z cache ---
+                                state = await self.get_robot_state()
+                                playing_song = state.get("status") == "song"
 
-                    # -------------------------------
-                    # 1) PŘECHOD NA "DOLŮ"
-                    # -------------------------------
-                    if is_down and not was_down:
-                        print(f"[KUKA][KEYPOSLOOP] -----------------------------------> Robot šel DOLŮ (Z={z_pos:.3f}) -> čtu PyKey a posílám jednou")
+                                sent_ok = False  # kontrola zda něco opravdu odešlo
 
-                        key = await self.KUKA_ReadVar("PyKey")
-                        print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
+                                if playing_song:
+                                    # využij číslo songu z WebSocketu
+                                    song_number = await self.get_current_song()
 
-                        if key is None:
-                            print("[KUKA][KEYPOSLOOP] PyKey je None -> přeskočeno (žádná klávesa?)")
-                        elif isinstance(key, str) and key.strip() == "":
-                            print("[KUKA][KEYPOSLOOP] PyKey je prázdný string -> přeskočeno")
-                        elif isinstance(key, bool):
-                            print(f"[KUKA][KEYPOSLOOP] PyKey je bool ({key}) -> neočekávané, přeskočeno")
-                        else:
-                            try:
-                                if isinstance(key, (bytes, bytearray)):
-                                    key_str = key.decode().strip()
-                                else:
-                                    key_str = str(key).strip()
-
-                                if "." in key_str:
-                                    key_int = int(float(key_str))
-                                else:
-                                    key_int = int(key_str)
-
-                                if not (1 <= key_int <= 23):
-                                    print(f"[KUKA][KEYPOSLOOP] PyKey ({key_int}) mimo rozsah -> přeskočeno")
-                                    key_int = None
-                            except (ValueError, TypeError) as e:
-                                print(f"[KUKA][KEYPOSLOOP] Neplatná hodnota PyKey ({key}): {e}")
-                                key_int = None
-
-                            if key_int is not None:
-                                shifted = key_int + (key_int - 1) + OFFSET
-
-                                seq_counter += 1
-                                seq = seq_counter
-
-                                if ack_fd is None:
-                                    print("[KUKA][KEYPOSLOOP][PIPELINE] ACK pipe není otevřená, posílám bez kontroly ACK.")
-                                    # i tak pošleme data (bez handshake)
-                                    wfd = self.try_open_write_nb()
-                                    if wfd is not None:
-                                        try:
-                                            os.write(wfd, f"{seq}:{shifted}\n".encode("utf-8"))
-                                        except Exception as e:
-                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] write bez ACK selhalo: {e}")
-                                        finally:
-                                            try:
-                                                os.close(wfd)
-                                            except Exception:
-                                                pass
+                                    if song_number is None:
+                                        print("[KUKA][KEYPOSLOOP] status='song', ale current_song_number=None -> nic neposílám")
                                     else:
-                                        print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte DATA pipe, klávesa se neodeslala.")
+                                        try:
+                                            fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+                                            with os.fdopen(fd, "w") as pipe:
+                                                print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílám číslo songu (edge dolů): {song_number}")
+                                                pipe.write(f"{song_number}\n")
+                                            sent_ok = True
+                                        except OSError as e:
+                                            if e.errno == errno.ENXIO:
+                                                print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), song se neodeslal.")
+                                            else:
+                                                print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu songu do FIFO: {e}")
+
                                 else:
-                                    await self.send_with_ack(
-                                        seq,
-                                        shifted,
-                                        ack_fd,
-                                        open_retry_delay=0.05,
-                                        write_retry_delay=0.05,
-                                        ack_timeout=1.0,
-                                        max_retries=3,
-                                    )
+                                    # --- LOGIKA PRO KLÁVESY, když song NEhraje ---
+                                    key = await self.KUKA_ReadVar("PyKey")
+                                    #print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
 
-                    # -------------------------------
-                    # 2) PŘECHOD NA "NAHORU"
-                    # -------------------------------
-                    elif (not is_down) and was_down:
-                        print(f"[KUKA][KEYPOSLOOP] Robot šel NAHORU (Z={z_pos:.3f}) -> posílám 0")
+                                    # 1) Když je None → nic neposílej, jen log
+                                    if key is None:
+                                        print("[KUKA][KEYPOSLOOP] PyKey je None -> přeskočeno (žádná klávesa?)")
+                                    # 2) Když je to prázdný string
+                                    elif isinstance(key, str) and key.strip() == "":
+                                        print("[KUKA][KEYPOSLOOP] PyKey je prázdný string -> přeskočeno")
+                                    # 3) Když je to bool (true/false z KRL)
+                                    elif isinstance(key, bool):
+                                        print(f"[KUKA][KEYPOSLOOP] PyKey je bool ({key}) -> neočekávané, přeskočeno")
+                                    else:
+                                        shifted = None
+                                        try:
+                                            if isinstance(key, (bytes, bytearray)):
+                                                key_str = key.decode().strip()
+                                            else:
+                                                key_str = str(key).strip()
 
-                        seq_counter += 1
-                        seq = seq_counter
-                        value = 0
+                                            if "." in key_str:
+                                                key_int = int(float(key_str))   # např. "12.0000" -> 12
+                                            else:
+                                                key_int = int(key_str)
 
-                        if ack_fd is None:
-                            print("[KUKA][KEYPOSLOOP][PIPELINE] ACK pipe není otevřená, posílám 0 bez kontroly ACK.")
-                            wfd = self.try_open_write_nb()
-                            if wfd is not None:
+                                            if not (1 <= key_int <= 22):
+                                                print(f"[KUKA][KEYPOSLOOP] PyKey ({key_int}) mimo rozsah -> přeskočeno")
+                                            else:
+                                                shifted = int(round((key_int + (key_int - 1)) * 1.15 + OFFSET))
+
+                                        except (ValueError, TypeError) as e:
+                                            print(f"[KUKA][KEYPOSLOOP] Neplatná hodnota PyKey ({key}): {e}")
+                                            shifted = None
+
+                                        if shifted is not None:
+                                            try:
+                                                fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+                                                with os.fdopen(fd, "w") as pipe:
+                                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] -------------------------------> Odesílání klávesy (edge dolů): {shifted}")
+                                                    pipe.write(f"{shifted}\n")
+                                                sent_ok = True
+                                            except OSError as e:
+                                                if e.errno == errno.ENXIO:
+                                                    print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), klávesa se neodeslala.")
+                                                else:
+                                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu do FIFO: {e}")
+
+                                # Pokud se něco úspěšně odeslalo, označíme stav jako "dole"
+                                if sent_ok:
+                                    was_down = True
+                                else:
+                                    # pokud nic neodešlo (např. klávesa None), necháme was_down=False,
+                                    # aby se při dalším cyklu dal zkusit poslat znovu
+                                    pass
+
+                            # --------------------------------
+                            # 2) PŘECHOD NA "NAHORU" (edge)
+                            # --------------------------------
+                            elif (not is_down) and was_down:
+                                #print(f"[KUKA][KEYPOSLOOP] Robot šel NAHORU (Z={z_pos:.3f}) -> pošlu 0")
                                 try:
-                                    os.write(wfd, f"{seq}:{value}\n".encode("utf-8"))
-                                except Exception as e:
-                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] write(0) bez ACK selhalo: {e}")
+                                    fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
+                                    with os.fdopen(fd, "w") as pipe:
+                                        print("[KUKA][KEYPOSLOOP][PIPELINE] -------------------------------> Odesílám 0 (edge nahoru)")
+                                        pipe.write("0\n")
+                                except OSError as e:
+                                    if e.errno == errno.ENXIO:
+                                        print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte FIFO (daemon asi neběží), 0 se neodeslala.")
+                                    else:
+                                        print(f"[KUKA][KEYPOSLOOP][PIPELINE] Chyba při zápisu 0 do FIFO: {e}")
                                 finally:
-                                    try:
-                                        os.close(wfd)
-                                    except Exception:
-                                        pass
-                            else:
-                                print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte DATA pipe, 0 se neodeslala.")
-                        else:
-                            await self.send_with_ack(
-                                seq,
-                                value,
-                                ack_fd,
-                                open_retry_delay=0.05,
-                                write_retry_delay=0.05,
-                                ack_timeout=1.0,
-                                max_retries=3,
-                            )
+                                    was_down = False
 
-                    # aktualizace edge stavu
-                    was_down = is_down
+                            # pokud nedošlo k žádnému přechodu, jen aktualizuj stav
+                            else:
+                                was_down = is_down
+
+                        else:
+                            print(f"[KUKA][KEYPOSLOOP] V parsed pose chybí Z: {pose}")
+                    else:
+                        print(f"[KUKA][KEYPOSLOOP] Nelze parsovat pozici z: {pos_raw}")
 
                 except Exception as inner_e:
                     print(f"[KUKA][KEYPOSLOOP] Chyba při čtení PyKey/Zpos: {inner_e}")
 
-                # hlavní delay smyčky
-                await asyncio.sleep(MAIN_CYCLE_SLEEP)
+                # 4) Interval mezi čteními
+                await asyncio.sleep(0.1)
 
         except asyncio.CancelledError:
             print("[KUKA][KEYPOSLOOP] key_and_position_loop ukončena (Cancelled).")
         except Exception as e:
             print(f"[KUKA][KEYPOSLOOP] Neočekávaná chyba v key_and_position_loop: {e}")
-        finally:
-            try:
-                if ack_fd is not None:
-                    os.close(ack_fd)
-            except Exception:
-                pass  
 
 
     # Asynchronní smyčka pro připojení k robotu
