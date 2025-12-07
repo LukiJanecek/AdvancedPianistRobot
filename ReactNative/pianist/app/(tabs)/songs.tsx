@@ -181,36 +181,55 @@ export default function MainScreen() {
             >
                {isHappy ? (
                 <ImageBackground
-                  source={BirthdayImg}
-                  resizeMode="cover"
-                  style={styles.starWarsBg}
-                >
-                  <Text style={styles.ButtonText}>Happy Birthday</Text>
-                </ImageBackground>
-              ) : (
-                null
-              )}
-              {isStarWars ? (
+                    source={BirthdayImg}
+                     resizeMode="cover"
+                       style={[
+                       styles.starWarsBg,
+                        status.playing_song && { opacity: 0.4 }
+                        ]}
+                         imageStyle={{ borderRadius: 10 }}
+                          >
+                         <Text style={[
+                          styles.ButtonText,
+                          status.playing_song && { color: '#888888' }
+                           ]}>Happy Birthday</Text>
+                          </ImageBackground>
+                           ) : (
+                              null
+                           )}
+                         {isStarWars ? (
                 <ImageBackground
-                  source={StarWarsImg}
-                  resizeMode="cover"
-                  style={styles.starWarsBg}
-                  imageStyle={{ borderRadius: 10 }}
-                >
-                  <Text style={styles.ButtonText}>STAR WARS</Text>
-                </ImageBackground>
-              ) : (
-                null
-              )}
-              {isBeeth ? (
-                <ImageBackground
+                   source={StarWarsImg}
+                    resizeMode="cover"
+                    style={[
+                    styles.starWarsBg,
+                      status.playing_song && { opacity: 0.4 }
+                    ]}
+                       imageStyle={{ borderRadius: 10 }}
+                          >
+                       <Text style={[
+                         styles.ButtonText,
+                           status.playing_song && { color: '#888888' }
+                           ]}>STAR WARS</Text>
+                        </ImageBackground>
+                           ) : (
+                               null
+                                )}
+                           {isBeeth ? (
+                        <ImageBackground
                   source={BeethovenImg}
-                  resizeMode="cover"
-                  style={styles.starWarsBg}
-                  imageStyle={{ borderRadius: 10 }}
-                >
-                  <Text style={styles.ButtonText}>Beethoven</Text>
-                </ImageBackground>
+                       resizeMode="cover"
+                          style={[
+                        styles.starWarsBg,
+                           status.playing_song && { opacity: 0.4 }
+                              ]}
+                          imageStyle={{ borderRadius: 10 }}
+                            >
+                          <Text style={[
+                           styles.ButtonText,
+                              status.playing_song && { color: '#888888' }
+                             ]}>Beethoven</Text>
+                              </ImageBackground>
               ) : (
                 null
               )}
