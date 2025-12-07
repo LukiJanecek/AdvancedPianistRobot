@@ -4,7 +4,7 @@ from typing import Literal
 from core.Kuka_robot_config import robot
 import asyncio
 
-from services.kuka_service import SONG_MAP  # přidej nahoře import SONG_MAP
+from services.kuka_service import SONG_MAP
 
 from services.shadow_watchdog import register_activity, stop_shadow, get_shadow_auto_stopped
 
@@ -47,7 +47,6 @@ async def status():
         "song_name": song_name,
         "shadow_start": shadow_start,   # <-- pro frontend
         "shadow_auto_stopped": get_shadow_auto_stopped(),  # <-- TRUE, pokud poslední stop byl timeoutem
-        "updated_at": state.get("updated_at"),
     }
 
 
@@ -257,6 +256,7 @@ async def test_all_vars():
         "PyWait",
         "$POS_ACT",
         "PyShadowStart",
+        "PySongNumber",
     ]
 
     results = {}
