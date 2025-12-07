@@ -42,10 +42,12 @@ class RoomHub:
         task = asyncio.create_task(self._watch_inactivity(room, conn.client_id))
         self.activity_tasks[conn.client_id] = task
 
+
     async def _stop_inactivity_watchdog(self, client_id: str):
         task = self.activity_tasks.pop(client_id, None)
         if task:
             task.cancel()
+            
 
     async def _watch_inactivity(self, room: str, client_id: str):
         """

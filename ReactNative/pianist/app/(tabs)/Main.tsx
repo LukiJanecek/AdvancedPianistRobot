@@ -95,13 +95,15 @@ const handleRequestPerformer = async () => {
     return;
   }
 
-  if (waiting || !status.shadow_start) {
+  /*if (waiting || !status.shadow_start) {
+    console.log("status.shadow_start is false, disabling button");
     setDissablebutton(true); // Use setter function
     return;
   } else {
+    console.log("status.shadow_start is true, enabling button");
     setDissablebutton(false); // Use setter function
     return;
-  }
+  }*/
   
   try {
     isRequestingRef.current = true;
@@ -160,7 +162,7 @@ const handleRequestPerformer = async () => {
       <View style={{ marginTop: 120, gap: 12, width: "50%", paddingHorizontal: 20, height: 200}}>
 
         <Pressable
-  disabled={dissablebutton}
+  disabled={waiting || !status.shadow_start}
   onPress={handleRequestPerformer}
   style={({ pressed }) => ({
     padding: 16,
