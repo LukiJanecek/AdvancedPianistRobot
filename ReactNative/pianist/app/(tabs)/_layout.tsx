@@ -14,15 +14,24 @@ import { useState } from "react";
 import { Modal, View, TextInput, Button, Text } from "react-native";
 import { useNavigation } from "expo-router";
 import { router } from "expo-router";
+import { useEffect } from "react";
+import { useSegments, useRouter } from "expo-router";
+
+
+
 
 const WebSocketContext = createContext<ReturnType<typeof useWebSocket> | null>(null);
+
 export const useWs = () => {
   const ctx = useContext(WebSocketContext);
+  
   if (!ctx) throw new Error("useWs must be used inside provider");
   return ctx;
 };
 
-export const unstable_settings = { initialRouteName: "songs" };
+
+
+export const unstable_settings = { initialRouteName: "Main" };
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -59,8 +68,78 @@ export default function TabLayout() {
   }
 
   // jediná WS instance
-  const ws = useWebSocket({ device: deviceRef.current, desiredRole: "performer", echoSelf: false, enabled: isFocused });
+  const ws = useWebSocket({ device: deviceRef.current, echoSelf: false, enabled: isFocused });
 
+  const releasePerformer = ws?.releasePerformer ?? (() => {});
+
+  
+
+  const { role } = ws ?? {};
+
+  const isNavigatingRef = useRef(false);
+const lastRoleRef = useRef(role);
+const lastTabPressRef = useRef<number>(0);
+
+  if (role === undefined || role === null) {
+  return null; // nebo loading
+}
+
+  ////////////
+
+const segments = useSegments();
+const router = useRouter();
+
+useEffect(() => {
+  if (!role) return;
+  
+  // Skip if already navigating
+  if (isNavigatingRef.current) return;
+  
+  // Skip if role hasn't changed
+  if (lastRoleRef.current === role) return;
+  
+  lastRoleRef.current = role;
+  
+  const current = "/" + segments.join("/");
+
+  if (role === "undefined" || role === "watcher") {
+    if (current.includes("piano") || current.includes("songs")) {
+      isNavigatingRef.current = true;
+      
+      router.replace("/Main");
+      
+      // Reset flag after navigation completes
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 500);
+    }
+  }
+}, [role, segments]);
+
+const handleMainTabPress = async (e: any) => {
+  const now = Date.now();
+  
+  // Debounce: prevent multiple rapid presses
+  if (now - lastTabPressRef.current < 1000) {
+    console.log("Tab press debounced");
+    return;
+  }
+  
+  lastTabPressRef.current = now;
+  
+  try {
+    // Only release if currently performer
+    if (role === "performer") {
+      await releasePerformer();
+      // Small delay to ensure server processes
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  } catch (err) {
+    console.error("Error releasing performer:", err);
+  }
+};
+
+//////////////
   return (
     <WebSocketContext.Provider value={ws}>
       <Tabs
@@ -71,13 +150,18 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="piano"
+          name="Main"
           options={{
-            title: "Piano",
+            title: "Main",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="pianokeys" color={color} />
             ),
           }}
+          listeners={{
+    tabPress: (e) => {
+      releasePerformer();
+    },
+  }}
         />
         <Tabs.Screen
           name="songs"
@@ -86,6 +170,17 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="music.note.list" color={color} />
             ),
+            href: role === "performer" ? "/songs" : null,
+          }}
+        />
+        <Tabs.Screen
+          name="piano"
+          options={{
+            title: "Piano",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="pianokeys" color={color} />
+            ),
+            href: role === "performer" ? "/piano" : null,
           }}
         />
         <Tabs.Screen

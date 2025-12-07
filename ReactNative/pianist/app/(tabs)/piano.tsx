@@ -1,17 +1,21 @@
 //piano.tsx
-import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
+import { StyleSheet, ScrollView, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-
 import { apiGet, apiPost } from '@/utils/api';
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
 import { useWs } from "./_layout";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-
 import { ROOM } from "../../constants/config";
+import { router } from "expo-router";
+import { Platform } from "react-native";
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Pressable } from 'react-native-gesture-handler';
+
+
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -24,32 +28,45 @@ export default function MainScreen() {
   const isDark = colorScheme === 'dark';
 
   // websocket
-  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();4
+  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId, releasePerformer } = useWs();
 
   //const { send, canControl, role, requestPerformer } = useWs(); // Toto je nova
 
-  const dotColor = isLoading
-  ? "#F59E0B"        
-  : status.online
-  ? "#22C55E"         
-  : "#EF4444";   
+  const dotColor = isLoading ? "#F59E0B" : status.online ? "#22C55E" : "#EF4444";
+  
+  //const dotColor = "#22C55E";
 
-  const label = isLoading
-    ? "Kontrola připojení..."
-    : status.online
-      ? "Robot připojen"
-      : "Robot odpojen";
+  const label = isLoading ? "Kontrola připojení..." : status.online ? "Robot připojen" : "Robot odpojen";
 
+  //const label = "Robot připojen";
+
+  
   // keys
   const keys = Array.from({ length: 22 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20]; 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
+  const [isReleasing, setIsReleasing] = useState(false);
+
   const whiteKeyDownTs = useRef<{ [key: number]: number }>({});
   const blackKeyDownTs = useRef<{ [key: number]: number }>({});
 
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
+
+  // Add this state declaration near the top with your other state declarations
+const [dissablebutton, setDissablebutton] = useState(false);
+
+// Add this useEffect to update the button state based on status
+useEffect(() => {
+  if (!status.in_shadow_mode && !status.shadow_auto_stopped) {
+    setDissablebutton(true);
+  } else {
+    setDissablebutton(false);
+  }
+}, [status.in_shadow_mode, status.shadow_auto_stopped]);
+
+  
 
   // 1) Reakce na events – jen vizuální stav kláves
   useEffect(() => {
@@ -72,13 +89,8 @@ export default function MainScreen() {
       }
     }
   }, [events]);
-    
-  // 2) Shadowing – start/stop podle možnosti ovládat a připojení robota
-  useEffect(() => {
-    // Shadowing má smysl jen když:
-    // - mám právo ovládat (performer + canControl)
-    // - robot je online
 
+  useEffect(() => {
     if (!canControl || !status.online || !isFocused) {
       return;
     }
@@ -121,6 +133,8 @@ export default function MainScreen() {
 
   }, [canControl, status.online, isFocused]); 
 
+
+  
   const WHITE_W = 64; 
   const BLACK_W = 40;
   const WRAP_MARGIN = 3;
@@ -171,10 +185,14 @@ export default function MainScreen() {
     delete blackKeyDownTs.current[k];
   };
 
+
   return (
     <ThemedView style={styles.container}>
+      {/*<ThemedText style={styles.btnText}>
+                  role: {role}
+                </ThemedText>
      {/*<ThemedText type="title">Piano</ThemedText>*/}
-     <ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
+     {/*<ThemedText style={styles.text}>Press any key and play on KUKA robot.</ThemedText>
       <ThemedText style={styles.text}>
         
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? "-"}
@@ -191,27 +209,57 @@ export default function MainScreen() {
           Ovládání: Zakázáno
         </ThemedText>
       )}
-      
-      
+      */}
       <View style={{ gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
           
-          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+          <ThemedText style={{ fontSize: 16, fontWeight: "600",color: '#ffffff' }}>
             {label}
           </ThemedText>
 
-          <ThemedText style={{ opacity: 0.8}}>
+         {/* <ThemedText style={{ opacity: 0.8}}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
+          </ThemedText>*/}
         </View>
       </View>
+
+      <View style={{ paddingTop: 10}}>
+        <Pressable
+          disabled={isReleasing}
+          onPress={async () => {
+            if (isReleasing) return;
+            
+            try {
+              setIsReleasing(true);
+              await releasePerformer();
+              await new Promise(resolve => setTimeout(resolve, 300));
+              router.replace("/Main");
+            } catch (err: any) {
+              console.error("Release performer failed:", err);
+            } finally {
+              setIsReleasing(false);
+            }
+          }}
+          style={({ pressed }) => ({
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: isReleasing ? "#888" : (pressed ? "#004f49ff" : "#00A499"),
+            alignItems: "center",
+            opacity: isReleasing ? 0.6 : 1,
+          })}
+        >
+          <Text style={styles.btnText}>
+            {isReleasing ? "Uvolňuji..." : "Ukončit hraní"}
+          </Text>
+        </Pressable>
+        </View>
 
       <View style={styles.keysWrap}>
         <ScrollView 
@@ -228,19 +276,24 @@ export default function MainScreen() {
         {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
-                  disabled={!canControl}
+                //  disabled={!canControl}
+                  disabled={dissablebutton || status.playing_song}
+                  onPressIn={() => onWhitePressIn(key)}
+                  onPressOut={() => onWhitePressOut(key)}
+                  onLongPress={() => true}
+                  delayLongPress={999999}
+                  android_ripple={null}                      // android
+                  android_disableSound={true}
                   style={({ pressed }) => [
                     styles.whiteKey,
                     {
-                      borderColor: isDark ? '#9ca3af' : '#000000',
+                      borderColor:'#9ca3af',
                       backgroundColor:
                         pressed || pressedKeys[key]
                           ? (isDark ? '#e5e7eb' : '#ddd')
                           : '#ffffff',
                     },
                   ]}
-                  onPressIn={() => onWhitePressIn(key)}
-                  onPressOut={() => onWhitePressOut(key)}
                 >
                   {/*<ThemedText style={styles.keyLabel}>{key}</ThemedText>*/}
                 </Pressable>
@@ -305,6 +358,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#121212',
   },
   text: {
    // marginTop: 20,
@@ -390,5 +444,9 @@ logo: {
   width: 50,
   height: 50,
 },
+btnText: {
+    fontSize: 20,
+    color: '#ffffffff',
+  },
 
 });

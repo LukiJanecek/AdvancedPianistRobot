@@ -67,6 +67,7 @@ async def custom_swagger_ui_html():
 async def startup_event():
     asyncio.create_task(robot.autoconnecting_loop())
     asyncio.create_task(robot.key_and_position_loop_for_CPP())
+    asyncio.create_task(robot.status_poll_loop(interval=0.5))
 
     print("API server started.")
 

@@ -42,10 +42,12 @@ class RoomHub:
         task = asyncio.create_task(self._watch_inactivity(room, conn.client_id))
         self.activity_tasks[conn.client_id] = task
 
+
     async def _stop_inactivity_watchdog(self, client_id: str):
         task = self.activity_tasks.pop(client_id, None)
         if task:
             task.cancel()
+            
 
     async def _watch_inactivity(self, room: str, client_id: str):
         """
@@ -136,36 +138,24 @@ class RoomHub:
 
     async def join(self, room: str, c: Conn) -> bool:
         """
-        Přidá klienta do místnosti jako watcher (performer řešíme zvlášť).
-        Zakazuje víc spojení ze stejného device/IP (staré kopy vyhodí).
+        - Přidá klienta do místnosti jako watcher (performer řešíme zvlášť).
+        - Pokud už existuje jakékoli WS spojení ze stejné IP adresy (v libovolné místnosti),
+          nové připojení se ZAMÍTNE (vrátí False) a socket se neacceptne.
         """
         async with self.lock:
+            # 🔒 Kontrola: existuje už někde spojení z této IP?
+            for room_name, members in self.rooms.items():
+                for m in members:
+                    if m.ip == c.ip:
+                        print(
+                            f"[WS][{c.ip}] Připojení ZAMÍTNUTO - IP už má aktivní websocket "
+                            f"v místnosti '{room_name}'."
+                        )
+                        # nevoláme accept(), necháváme ws_endpoint vyřešit zavření
+                        return False
+
+            # IP je volná → normálně přidáme do požadované room
             members = self.rooms.setdefault(room, set())
-
-            # Zákaz více spojení se stejným device nebo IP
-            same_device_or_ip = [
-                m for m in members
-                if (m.device == c.device) or (m.ip == c.ip)
-            ]
-
-            for old in same_device_or_ip:
-                try:
-                    await old.ws.send_text(json.dumps({
-                        "type": "info",
-                        "event": "replaced",
-                        "reason": "same_device_or_ip",
-                        "message": "Byl jsi odpojen, protože se připojilo nové spojení ze stejného zařízení/IP.",
-                    }, separators=(",", ":")))
-                except Exception:
-                    pass
-                try:
-                    await old.ws.close(code=4400)
-                except Exception:
-                    pass
-                members.discard(old)
-                # pro jistotu zabij i watchdog
-                await self._stop_inactivity_watchdog(old.client_id)
-
             members.add(c)
 
         # WS accept až po zapsání do struktury
@@ -400,6 +390,61 @@ class RoomHub:
 
         await self._presence(room)
         return True
+    
+
+    async def release_performer(self, room: str) -> Optional[str]:
+        """
+        Uvolní roli performera v dané místnosti:
+        - performer (pokud existuje) se změní na watcher
+        - zastaví se jeho watchdog
+        - všem v místnosti se pošle aktualizovaná presence
+
+        Vrací client_id uvolněného performera, nebo None, pokud žádný není.
+        """
+        async with self.lock:
+            members = self.rooms.get(room)
+            if not members:
+                return None
+
+            performer: Optional[Conn] = None
+            new_members: Set[Conn] = set()
+
+            for m in members:
+                if m.role == "performer" and performer is None:
+                    # našli jsme performera, uděláme novou instanci s role="watcher"
+                    performer = m
+                    demoted = replace(m, role="watcher", inactive=False)
+                    new_members.add(demoted)
+                else:
+                    new_members.add(m)
+
+            if performer is None:
+                # v místnosti není performer
+                return None
+
+            # uložíme novou sadu členů
+            self.rooms[room] = new_members
+
+            # zastavíme watchdog bývalého performera
+            await self._stop_inactivity_watchdog(performer.client_id)
+
+        # mimo lock můžeme tomu klientovi poslat info
+        try:
+            await performer.ws.send_text(json.dumps({
+                "type": "info",
+                "event": "role_changed",
+                "role": "watcher",
+                "reason": "release_performer",
+                "message": "Byl jsi přeřazen na watcher – role performera byla uvolněna.",
+            }, separators=(",", ":")))
+        except Exception:
+            pass
+
+        # přepočítej presence
+        await self._presence(room)
+
+        return performer.client_id
+
 
     # ---------- původní admin force_takeover necháme (beze změny logiky) ----------
 

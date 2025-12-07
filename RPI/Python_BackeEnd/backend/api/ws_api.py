@@ -1,25 +1,52 @@
 # api/ws_api
 import json
 from dataclasses import replace
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, Path
 from services.ws_hub_service import hub, new_conn
 from models.ws_message import WSIn
 from datetime import datetime
-from typing import Optional
+from enum import Enum
 
 from services.shadow_watchdog import register_activity
 
 import asyncio
 
+API_TOKEN = "demo-token"
+VALID_ROLES = {"watcher", "performer"}
+
+class RoomName(str, Enum):
+    kuka_pianist = "kuka_pianist"
+
+
 router_ws = APIRouter(tags=["WebSocket"])
 
 from core.Kuka_robot_config import robot
 
+
+@router_ws.get("/WS/clients")
+async def get_clients():
+    clients = []
+
+    async with hub.lock:
+        for room_name, members in hub.rooms.items():
+            for conn in members:
+                clients.append({
+                    "room": room_name,
+                    "client_id": conn.client_id,
+                    "device": conn.device,
+                    "ip": conn.ip,
+                    "role": conn.role,
+                    "inactive": conn.inactive,
+                })
+
+    return {"clients": clients}
+
+
+
 @router_ws.get("/WS/performer")
-async def get_performer():
+async def get_performers():
     performer = []
 
-    # Uzamkneme hub, abychom měli konzistentní přístup k rooms
     async with hub.lock:
         for room_name, members in hub.rooms.items():
             for conn in members:
@@ -29,9 +56,11 @@ async def get_performer():
                         "client_id": conn.client_id,
                         "device": conn.device,
                         "ip": conn.ip,
+                        "inactive": conn.inactive,
                     })
 
     return {"performer": performer}
+
 
 
 @router_ws.get("/WS/watchers")
@@ -52,6 +81,7 @@ async def get_watchers():
 
     return {"watchers": watchers}
 
+
 @router_ws.post("/WS/kickAll")
 async def drop_everyone():
     """
@@ -66,11 +96,12 @@ async def drop_everyone():
 
 @router_ws.post("/WS/{room}/takeover")
 async def takeover_performer(
-    room: str,
+    room: RoomName = Path(
+        ...,
+    ),
     client_id: str = Query(..., description="client_id spojení, které má převzít roli performera"),
 ):
-
-    ok = await hub.force_takeover(room, client_id)
+    ok = await hub.force_takeover(room.value, client_id)
     if not ok:
         raise HTTPException(
             status_code=404,
@@ -79,14 +110,17 @@ async def takeover_performer(
 
     return {
         "status": "ok",
-        "room": room,
+        "room": room.value,
         "new_performer": client_id,
     }
 
 
+
 @router_ws.post("/WS/{room}/request-performer")
 async def request_performer(
-    room: str,
+    room: RoomName = Path(
+        ...,
+    ),
     client_id: str = Query(..., description="client_id spojení, které žádá roli performera"),
 ):
     """
@@ -108,8 +142,33 @@ async def request_performer(
         "new_performer": client_id,
     }
 
-API_TOKEN = "demo-token"
-VALID_ROLES = {"watcher", "performer"}
+@router_ws.post("/WS/{room}/release-performer")
+async def release_performer(
+    room: RoomName = Path(
+        ...,
+    ),
+):
+    """
+    Admin/utility endpoint:
+    - najde v místnosti aktuálního performera
+    - změní mu roli zpět na "watcher"
+    - tím se uvolní performer role pro dalšího klienta
+    """
+    released_id = await hub.release_performer(room.value)
+
+    if released_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"V místnosti '{room.value}' není žádný performer."
+        )
+
+    return {
+        "status": "ok",
+        "room": room.value,
+        "released_client_id": released_id,
+        "new_role": "watcher",
+    }
+
 
 @router_ws.websocket("/ws")
 async def ws_endpoint(
@@ -170,8 +229,7 @@ async def ws_endpoint(
     try:
         while True:
             raw = await ws.receive_text()
-            #print(f"[WS][{client_ip}] Přijatý raw:", raw)
-            await hub.mark_activity(room, active_conn.client_id)
+            # print(f"[WS][{client_ip}] Přijatý raw:", raw)
 
             # Parsování příchozí zprávy
             if raw.startswith("{"):
@@ -179,31 +237,27 @@ async def ws_endpoint(
             else:
                 data = WSIn(type="event")
 
-            # Keepalive
+            # Keepalive – NEZAPISUJE aktivitu
             if data.type == "ping":
                 await ws.send_text('{"type":"pong"}')
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
 
+            if data.type in ("note_on", "note_off", "song_button"):
+                await hub.mark_activity(room, active_conn.client_id)
+
             if data.type == "note_on":
                 await register_activity()
                 print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
-                # Zde můžete přidat další logiku pro note_on
                 asyncio.create_task(robot.play_note(data.note))
 
             if data.type == "note_off":
                 print(f"[WS][{client_ip}] Note OFF - note:{data.note} duration:{data.duration}ms")
-                # Zde můžete přidat další logiku pro note_off
-                asyncio.create_task(robot.play_note(data.note, data.duration))
+                asyncio.create_task(robot.play_note(note_number=data.note, duration=data.duration))
 
             if data.type == "song_button":
                 print(f"[WS][{client_ip}] Play song - number:{data.button}")
-                # Zde můžete přidat další logiku pro note_off
-                asyncio.create_task(robot.play_song(song_number=data.button))
-
-            #[WS][127.0.0.1] Přijatý raw: {"type":"note_on","note":8,"vel":100,"ts":1761211930005}
-            #[WS][127.0.0.1] Přijatý raw: {"type":"note_off","note":8,"ts":1761211930539,"duration":534}
-          
+                asyncio.create_task(robot.play_and_track(song_num=data.button))
 
             payload = {
                 "type": data.type,
@@ -220,6 +274,7 @@ async def ws_endpoint(
             }
 
             await hub.send_room(room, payload, skip=None if echo_self else active_conn.client_id)
+
 
     except WebSocketDisconnect:
         print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Odpojeno")

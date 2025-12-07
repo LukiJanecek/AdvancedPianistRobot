@@ -4,13 +4,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/native';
-
 import { useWs } from "./_layout";
 import { useRobotConnectionPoller } from '@/hooks/useRobotConnectionPoller';
-
 import BirthdayImg from '../../assets/images/Birthday.jpg';
 import StarWarsImg from '../../assets/images/StarWars1.jpg';
 import BeethovenImg from '../../assets/images/Beethoven.jpg';
+import { router } from "expo-router";
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -19,10 +18,9 @@ export default function MainScreen() {
   const { status, isLoading } = useRobotConnectionPoller(3000, isFocused);
 
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   
   // websocket
-  const { send, presence, role, state, canControl, events, robotState, clientId: selfClientId } = useWs();
+  const { send, presence, role, state, canControl, events, robotState, releasePerformer } = useWs();
 
   // pro test si tam dej fake hodnoty:
   //const send = () => {};
@@ -31,20 +29,18 @@ export default function MainScreen() {
   //const state = "idle";
   //const canControl = false;
   
-  const dotColor = isLoading
-  ? "#F59E0B"        
-  : status.online
-  ? "#22C55E"         
-  : "#EF4444";     
+  const dotColor = isLoading ? "#F59E0B" : status.online ? "#22C55E" : "#EF4444";
+  
+  //const dotColor = "#22C55E";
 
-  const label = isLoading
-    ? "Kontrola připojení..."
-    : status.online
-    ? "Robot připojen"
-    : "Robot odpojen";
+  const label = isLoading ? "Kontrola připojení..." : status.online ? "Robot připojen" : "Robot odpojen";
+
+  //const label = "Robot připojen";
   
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
+
+  const [isReleasing, setIsReleasing] = useState(false);
 
   const buttons = [
     { id: 1, label: 'Happy Birthday' },
@@ -67,23 +63,35 @@ export default function MainScreen() {
   };
 
   return (
+    
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Zahrej skladbu</ThemedText>
-      {/*<ThemedText style={styles.text}>
-        Zvol si svou písničku a odešli na KUKA robota.
-      </ThemedText>*/}
-      <ThemedText style={{ opacity: 0.8 }}>
+      {/*<ThemedText style={styles.btnText}>
+                  role: {role}
+                </ThemedText>*/}
+      <View style={{ gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{
+            width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
+          }}/>
+          
+          <ThemedText style={{ fontSize: 16, fontWeight: "600", color: '#ffffff'}}>
+            {label}
+          </ThemedText>
+
+          {/*<ThemedText style={{ opacity: 0.8}}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
-      <ThemedText style={styles.text}>
+          </ThemedText>*/}
+        </View>
+      </View>
+      {/*<ThemedText style={styles.text}>
         WS: {state} • role: {role} • watchers: {presence?.watchers ?? '-'}
-      </ThemedText>
+      </ThemedText>*/}
       
-
+{/*
       {/*<View style={{ marginTop: 16, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{
@@ -103,6 +111,7 @@ export default function MainScreen() {
           </ThemedText>
         </View>
       </View>*/}
+      {/*
       
       {role === 'undefined' && (
         <ThemedText style={styles.note}>Čekám na přiřazení role od serveru…</ThemedText>
@@ -116,7 +125,42 @@ export default function MainScreen() {
           Robot právě hraje - tlačítka jsou zamčená.
         </ThemedText>
       )}
+      */}
+      <View style={{ paddingTop: 10}}>
+      <Pressable
+                disabled={isReleasing}
+                onPress={async () => {
+                  if (isReleasing) return;
+                  
+                  try {
+                    setIsReleasing(true);
+                    await releasePerformer();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    router.replace("/Main");
+                  } catch (err: any) {
+                    console.error("Release performer failed:", err);
+                  } finally {
+                    setIsReleasing(false);
+                  }
+                }}
+                style={({ pressed }) => ({
+                  padding: 12,
+                  borderRadius: 8,
+                  backgroundColor: isReleasing ? "#888" : (pressed ? "#004f49ff" : "#00A499"),
+                  alignItems: "center",
+                  opacity: isReleasing ? 0.6 : 1,
+                })}
+              >
+                <Text style={styles.btnText}>
+                  {isReleasing ? "Uvolňuji..." : "Ukončit hraní"}
+                </Text>
+              </Pressable>
+              </View>
       
+      <ScrollView
+          style={styles.keysScroller} 
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+          showsHorizontalScrollIndicator={false}>
       <View style={styles.buttonsRow}>
         {buttons.map((b) => {
           const isHappy = b.label === "Happy Birthday";
@@ -124,10 +168,6 @@ export default function MainScreen() {
           const isBeeth = b.label === "Beethoven";
 
           return (
-           <ScrollView
-          style={styles.keysScroller} 
-          //contentContainerStyle={[styles.keysRow, { paddingBottom: 12 }]}
-          showsHorizontalScrollIndicator={false}>
             <Pressable
               key={b.id}
               disabled={!canControl || status.playing_song === true}
@@ -141,46 +181,65 @@ export default function MainScreen() {
             >
                {isHappy ? (
                 <ImageBackground
-                  source={BirthdayImg}
-                  resizeMode="cover"
-                  style={styles.starWarsBg}
-                >
-                  <Text style={styles.starWarsText}>Happy Birthday</Text>
-                </ImageBackground>
-              ) : (
-                null
-              )}
-              {isStarWars ? (
+                    source={BirthdayImg}
+                     resizeMode="cover"
+                       style={[
+                       styles.starWarsBg,
+                        status.playing_song && { opacity: 0.4 }
+                        ]}
+                         imageStyle={{ borderRadius: 10 }}
+                          >
+                         <Text style={[
+                          styles.ButtonText,
+                          //status.playing_song && { color: '#888888' }
+                           ]}>Happy Birthday</Text>
+                          </ImageBackground>
+                           ) : (
+                              null
+                           )}
+                         {isStarWars ? (
                 <ImageBackground
-                  source={StarWarsImg}
-                  resizeMode="cover"
-                  style={styles.starWarsBg}
-                  imageStyle={{ borderRadius: 10 }}
-                >
-                  <Text style={styles.starWarsText}>STAR WARS</Text>
-                </ImageBackground>
-              ) : (
-                null
-              )}
-              {isBeeth ? (
-                <ImageBackground
+                   source={StarWarsImg}
+                    resizeMode="cover"
+                    style={[
+                    styles.starWarsBg,
+                      status.playing_song && { opacity: 0.4 }
+                    ]}
+                       imageStyle={{ borderRadius: 10 }}
+                          >
+                       <Text style={[
+                         styles.ButtonText,
+                           //status.playing_song && { color: '#888888' }
+                           ]}>STAR WARS</Text>
+                        </ImageBackground>
+                           ) : (
+                               null
+                                )}
+                           {isBeeth ? (
+                        <ImageBackground
                   source={BeethovenImg}
-                  resizeMode="cover"
-                  style={styles.starWarsBg}
-                  imageStyle={{ borderRadius: 10 }}
-                >
-                  <Text style={styles.starWarsText}>Beethoven</Text>
-                </ImageBackground>
+                       resizeMode="cover"
+                          style={[
+                        styles.starWarsBg,
+                           status.playing_song && { opacity: 0.4 }
+                              ]}
+                          imageStyle={{ borderRadius: 10 }}
+                            >
+                          <Text style={[
+                           styles.ButtonText,
+                              //status.playing_song && { color: '#888888' }
+                             ]}>Beethoven</Text>
+                              </ImageBackground>
               ) : (
                 null
               )}
             </Pressable>
-            </ScrollView>
             
             
           );
         })}
       </View>
+      </ScrollView>
 
       {/*<View
         style={[
@@ -216,6 +275,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 24,
     alignItems: 'center',
+    backgroundColor: '#121212',
   },
   text: {
     marginTop: 8,
@@ -232,8 +292,8 @@ const styles = StyleSheet.create({
   },
   buttonsRow: {
     marginTop: 28,
-    width: '50%',
-    height: 200,
+    width: '80%',
+    maxWidth: 600,
     paddingHorizontal: 16,
     gap: 12,
   },
@@ -292,7 +352,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  starWarsText: {
+  ButtonText: {
     fontSize: 26,
     fontWeight: "900",
     color: "#ffffffff",        // zlatá jako Star Wars

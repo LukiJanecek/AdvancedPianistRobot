@@ -287,6 +287,16 @@ export function useWebSocket(opts: UseWebSocketOptions) {
     }
   };
 
+  const releasePerformer = async () => {
+    // klidně lze pustit i když nejsi performer – backend prostě zruší aktuálního
+    try {
+      await apiPost(`/WS/${ROOM}/release-performer`);
+      return { ok: true as const };
+    } catch (e: any) {
+      return { ok: false as const, error: e };
+    }
+  };
+
   return {
     events,
     presence,       // {members: [{..., inactive}], has_performer, watchers}
@@ -297,5 +307,6 @@ export function useWebSocket(opts: UseWebSocketOptions) {
     clientId: selfClientId,
     robotState,
     requestPerformer, // <- NOVÉ: zavolej z UI, když chceš roli performera
+    releasePerformer,
   };
 }

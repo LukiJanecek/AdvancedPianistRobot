@@ -69,8 +69,8 @@ def get_throttle_status():
 @router.get("/ledPipeLineTest/{key}")
 def pipe_line_test(key: int):
     # --- 0) Validace vstupu ---
-    if key < 1 or key > 23:
-        msg = f"Key {key} is out of valid range (1-23)."
+    if key < 1 or key > 22:
+        msg = f"Key {key} is out of valid range (1-22)."
         print(f"[SYSTEM][PIPELINE] {msg}")
         return {"status": "error", "detail": msg, "key": key}
     
