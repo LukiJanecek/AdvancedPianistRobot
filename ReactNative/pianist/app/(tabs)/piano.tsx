@@ -15,6 +15,8 @@ import { Platform } from "react-native";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Pressable } from 'react-native-gesture-handler';
 
+
+
 export default function MainScreen() {
   const isFocused = useIsFocused();
 
@@ -51,6 +53,20 @@ export default function MainScreen() {
   const blackKeyDownTs = useRef<{ [key: number]: number }>({});
 
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
+
+  // Add this state declaration near the top with your other state declarations
+const [dissablebutton, setDissablebutton] = useState(false);
+
+// Add this useEffect to update the button state based on status
+useEffect(() => {
+  if (!status.in_shadow_mode && !status.shadow_auto_stopped) {
+    setDissablebutton(true);
+  } else {
+    setDissablebutton(false);
+  }
+}, [status.in_shadow_mode, status.shadow_auto_stopped]);
+
+  
 
   // 1) Reakce na events – jen vizuální stav kláves
   useEffect(() => {
@@ -117,6 +133,8 @@ export default function MainScreen() {
 
   }, [canControl, status.online, isFocused]); 
 
+
+  
   const WHITE_W = 64; 
   const BLACK_W = 40;
   const WRAP_MARGIN = 3;
@@ -166,6 +184,7 @@ export default function MainScreen() {
     //send(payloadOff);
     delete blackKeyDownTs.current[k];
   };
+
 
   return (
     <ThemedView style={styles.container}>
@@ -258,7 +277,7 @@ export default function MainScreen() {
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
                 //  disabled={!canControl}
-                  disabled={(!status.in_shadow_mode && !status.shadow_auto_stopped)}
+                  disabled={dissablebutton}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                   onLongPress={() => true}

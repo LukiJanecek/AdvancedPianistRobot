@@ -56,7 +56,9 @@ export default function MainScreen() {
     setLastPayload(payload);
   };
 
-const [waiting, setWaiting] = useState(false);
+const [waiting, setWaiting,] = useState(false);
+
+const [dissablebutton, setDissablebutton] = useState(false);
 
 // Track last request time to prevent rapid requests
 const lastRequestTimeRef = useRef<number>(0);
@@ -68,7 +70,7 @@ useEffect(() => {
   if (role === "performer") {
     setWaiting(false);
     // Use replace to ensure clean navigation
-    router.replace("/piano");
+    router.replace("/songs");
   }
 }, [role, waiting]);
 
@@ -89,7 +91,15 @@ const handleRequestPerformer = async () => {
   
   // Already a performer
   if (role === "performer") {
-    router.replace("/piano");
+    router.replace("/songs");
+    return;
+  }
+
+  if (waiting || !status.shadow_start) {
+    setDissablebutton(true); // Use setter function
+    return;
+  } else {
+    setDissablebutton(false); // Use setter function
     return;
   }
   
@@ -150,7 +160,7 @@ const handleRequestPerformer = async () => {
       <View style={{ marginTop: 120, gap: 12, width: "50%", paddingHorizontal: 20, height: 200}}>
 
         <Pressable
-  disabled={waiting || role === "performer" || !status.shadow_start}
+  disabled={dissablebutton}
   onPress={handleRequestPerformer}
   style={({ pressed }) => ({
     padding: 16,

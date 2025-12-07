@@ -164,16 +164,6 @@ const handleMainTabPress = async (e: any) => {
   }}
         />
         <Tabs.Screen
-          name="piano"
-          options={{
-            title: "Piano",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="pianokeys" color={color} />
-            ),
-            href: role === "performer" ? "/piano" : null,
-          }}
-        />
-        <Tabs.Screen
           name="songs"
           options={{
             title: "Skladby",
@@ -181,6 +171,16 @@ const handleMainTabPress = async (e: any) => {
               <IconSymbol size={28} name="music.note.list" color={color} />
             ),
             href: role === "performer" ? "/songs" : null,
+          }}
+        />
+        <Tabs.Screen
+          name="piano"
+          options={{
+            title: "Piano",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="pianokeys" color={color} />
+            ),
+            href: role === "performer" ? "/piano" : null,
           }}
         />
         <Tabs.Screen
