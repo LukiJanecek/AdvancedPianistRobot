@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  top:
+    build: ./top
+    container_name: pianist_led_top
+    devices:
+      - /dev/mem
+      - /dev/gpiomem
+    privileged: true
+    restart: unless-stopped
+
+#  btm:
+#    build: ./btm
+#    container_name: pianist_led_btm
+#    devices:
+#      - /dev/mem
+#      - /dev/gpiomem
+#    privileged: true
+#    restart: unless-stopped
