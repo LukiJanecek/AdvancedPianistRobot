@@ -191,7 +191,7 @@ export default function MainScreen() {
                           >
                          <Text style={[
                           styles.ButtonText,
-                          status.playing_song && { color: '#888888' }
+                          //status.playing_song && { color: '#888888' }
                            ]}>Happy Birthday</Text>
                           </ImageBackground>
                            ) : (
@@ -209,7 +209,7 @@ export default function MainScreen() {
                           >
                        <Text style={[
                          styles.ButtonText,
-                           status.playing_song && { color: '#888888' }
+                           //status.playing_song && { color: '#888888' }
                            ]}>STAR WARS</Text>
                         </ImageBackground>
                            ) : (
@@ -227,7 +227,7 @@ export default function MainScreen() {
                             >
                           <Text style={[
                            styles.ButtonText,
-                              status.playing_song && { color: '#888888' }
+                              //status.playing_song && { color: '#888888' }
                              ]}>Beethoven</Text>
                               </ImageBackground>
               ) : (

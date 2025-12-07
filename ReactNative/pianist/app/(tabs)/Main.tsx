@@ -94,16 +94,6 @@ const handleRequestPerformer = async () => {
     router.replace("/songs");
     return;
   }
-
-  /*if (waiting || !status.shadow_start) {
-    console.log("status.shadow_start is false, disabling button");
-    setDissablebutton(true); // Use setter function
-    return;
-  } else {
-    console.log("status.shadow_start is true, enabling button");
-    setDissablebutton(false); // Use setter function
-    return;
-  }*/
   
   try {
     isRequestingRef.current = true;
