@@ -1,0 +1,26 @@
+services:
+  top:
+    build: ./top
+    container_name: pianist_led_top
+    devices:
+      - /dev/mem
+      - /dev/gpiomem
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /tmp/led:/tmp/led
+
+#  btm:
+#    build: ./btm
+#    container_name: pianist_led_btm
+#    devices:
+#      - /dev/mem
+#      - /dev/gpiomem
+#    privileged: true
+#    restart: unless-stopped
+#    volumes:
+#      - /tmp/led:/tmp/led
+
+volumes:
+  led-pipes:
+    driver: local

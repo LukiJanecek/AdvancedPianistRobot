@@ -4,7 +4,10 @@ from typing import Literal
 from core.Kuka_robot_config import robot
 import asyncio
 
-from services.shadow_watchdog import register_activity, stop_shadow
+from services.kuka_service import SONG_MAP
+
+from services.shadow_watchdog import register_activity, stop_shadow, get_shadow_auto_stopped
+
 
 router_kuka = APIRouter(prefix="/Kuka", tags=["Kuka"])
 
@@ -20,7 +23,6 @@ async def _ensure_connected() -> None:
             detail="[KUKA] Robot is not connected",
         )
 
-
 @router_kuka.get("/status")
 async def status():
     state = await robot.get_robot_state()
@@ -28,6 +30,10 @@ async def status():
     in_shadow = state.get("status") == "shadow"
     playing_song = state.get("status") == "song"
     song_number = await robot.get_current_song()
+    song_name = SONG_MAP.get(song_number) if song_number is not None else None
+
+    # nově – vyčtená hodnota PyShadowStart z cache
+    shadow_start = state.get("shadow_start")
 
     return {
         "connected": await robot.KUKA_IsConnected(),
@@ -38,8 +44,11 @@ async def status():
         "in_shadow_mode": in_shadow,
         "playing_song": playing_song,
         "song_number": song_number,
-        "updated_at": state.get("updated_at"),
+        "song_name": song_name,
+        "shadow_start": shadow_start,   # <-- pro frontend
+        "shadow_auto_stopped": get_shadow_auto_stopped(),  # <-- TRUE, pokud poslední stop byl timeoutem
     }
+
 
 @router_kuka.post("/connect")
 async def connect():
@@ -247,6 +256,7 @@ async def test_all_vars():
         "PyWait",
         "$POS_ACT",
         "PyShadowStart",
+        "PySongNumber",
     ]
 
     results = {}

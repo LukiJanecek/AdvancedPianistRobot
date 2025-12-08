@@ -14,17 +14,30 @@ services:
       - /bin/bash
       - -c
       - |
+          # zajisti existenci adresáře
+          mkdir -p /tmp/led
+
+          # DATA FIFO
           if [ ! -p /tmp/led/pipe ]; then
-            mkfifo -m 666 /tmp/led/pipe;
-            echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/pipe";
+            mkfifo -m 666 /tmp/led/pipe
+            echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/pipe"
           else
-            echo "[ENTRYPOINT] FIFO /tmp/led/pipe už existuje";
+            echo "[ENTRYPOINT] FIFO /tmp/led/pipe už existuje"
+          fi
+
+          # ACK FIFO
+          if [ ! -p /tmp/led/pipe_ack ]; then
+            mkfifo -m 666 /tmp/led/pipe_ack
+            echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/pipe_ack"
+          else
+            echo "[ENTRYPOINT] FIFO /tmp/led/pipe_ack už existuje"
           fi
 
           echo "[ENTRYPOINT] Startuju uvicorn..."
           exec uvicorn main:app --host 0.0.0.0 --port 8000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://192.168.1.104:8000/docs"]
+      # uvnitř kontejneru nehardcoduj 192.168.x.x, ale localhost
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
       timeout: 5s
       retries: 5

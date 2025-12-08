@@ -70,7 +70,7 @@ export default function MainScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Admin ovládání</ThemedText>
+      <ThemedText type="title" style={styles.text}>Admin ovládání</ThemedText>
 
      <ThemedText style={[
             styles.text,
@@ -85,17 +85,17 @@ export default function MainScreen() {
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
           
-          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+          <ThemedText style={styles.text}>
             {label}
           </ThemedText>
 
-          <ThemedText style={{ opacity: 0.8 }}>
+           {/*<ThemedText style={styles.text}>
             {isLoading
               ? "Kontroluji připojení…"
               : `Target: ${status.ip ?? "unknown"}${
                   status.port ? `:${status.port}` : ""
                 }`}
-          </ThemedText>
+          </ThemedText>*/}
         </View>
         </View>
 
@@ -198,13 +198,13 @@ export default function MainScreen() {
       <View
         style={[
           styles.footer,
-          { borderColor: isDark ? '#374151' : '#e5e7eb' },
+          { borderColor: '#374151'},
         ]}
       >
         <ThemedText
           style={[
             styles.footerText,
-            { color: isDark ? '#e5e7eb' : '#374151' },
+            { color: '#e5e7eb'},
           ]}
         >
           {lastPressed ? lastPressed : 'Ještě nic nebylo stisknuto'}
@@ -213,7 +213,7 @@ export default function MainScreen() {
           <ThemedText
             style={[
               styles.footerPayload,
-              { color: isDark ? '#9ca3af' : '#6b7280' },
+              { color: '#9ca3af'},
             ]}
           >
             {JSON.stringify(lastPayload, null, 2)}
@@ -235,6 +235,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
+    color: '#ffffffff',
     
   },
   note: {
