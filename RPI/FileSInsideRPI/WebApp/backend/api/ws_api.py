@@ -36,16 +36,17 @@ async def get_clients():
                     "device": conn.device,
                     "ip": conn.ip,
                     "role": conn.role,
+                    "inactive": conn.inactive,
                 })
 
     return {"clients": clients}
+
 
 
 @router_ws.get("/WS/performer")
 async def get_performers():
     performer = []
 
-    # Uzamkneme hub, abychom měli konzistentní přístup k rooms
     async with hub.lock:
         for room_name, members in hub.rooms.items():
             for conn in members:
@@ -55,9 +56,11 @@ async def get_performers():
                         "client_id": conn.client_id,
                         "device": conn.device,
                         "ip": conn.ip,
+                        "inactive": conn.inactive,
                     })
 
     return {"performer": performer}
+
 
 
 @router_ws.get("/WS/watchers")
@@ -226,8 +229,7 @@ async def ws_endpoint(
     try:
         while True:
             raw = await ws.receive_text()
-            #print(f"[WS][{client_ip}] Přijatý raw:", raw)
-            await hub.mark_activity(room, active_conn.client_id)
+            # print(f"[WS][{client_ip}] Přijatý raw:", raw)
 
             # Parsování příchozí zprávy
             if raw.startswith("{"):
@@ -235,32 +237,27 @@ async def ws_endpoint(
             else:
                 data = WSIn(type="event")
 
-            # Keepalive
+            # Keepalive – NEZAPISUJE aktivitu
             if data.type == "ping":
                 await ws.send_text('{"type":"pong"}')
                 print(f"[WS][{client_ip}] Odesílám pong")
                 continue
 
+            if data.type in ("note_on", "note_off", "song_button"):
+                await hub.mark_activity(room, active_conn.client_id)
+
             if data.type == "note_on":
                 await register_activity()
                 print(f"[WS][{client_ip}] Note ON - note:{data.note} velocity:{data.vel}")
-                # Zde můžete přidat další logiku pro note_on
                 asyncio.create_task(robot.play_note(data.note))
 
             if data.type == "note_off":
                 print(f"[WS][{client_ip}] Note OFF - note:{data.note} duration:{data.duration}ms")
-                # Zde můžete přidat další logiku pro note_off
-                asyncio.create_task(robot.play_note(data.duration))
+                asyncio.create_task(robot.play_note(note_number=data.note, duration=data.duration))
 
             if data.type == "song_button":
-                await register_activity()
                 print(f"[WS][{client_ip}] Play song - number:{data.button}")
-                # Zde můžete přidat další logiku pro note_off
                 asyncio.create_task(robot.play_and_track(song_num=data.button))
-
-            #[WS][127.0.0.1] Přijatý raw: {"type":"note_on","note":8,"vel":100,"ts":1761211930005}
-            #[WS][127.0.0.1] Přijatý raw: {"type":"note_off","note":8,"ts":1761211930539,"duration":534}
-          
 
             payload = {
                 "type": data.type,
@@ -277,6 +274,7 @@ async def ws_endpoint(
             }
 
             await hub.send_room(room, payload, skip=None if echo_self else active_conn.client_id)
+
 
     except WebSocketDisconnect:
         print(f"[WS][{client_ip}][{datetime.now().strftime('%H:%M:%S')}] Odpojeno")

@@ -12,6 +12,8 @@ type RobotStatusRaw = {
   detail?: string | null;
   in_shadow_mode?: boolean;
   playing_song?: boolean;
+  shadow_start?: boolean;        
+  shadow_auto_stopped?: boolean;          
 };
 
 export type RobotStatus = {
@@ -24,6 +26,8 @@ export type RobotStatus = {
   detail?: string | null;
   in_shadow_mode?: boolean;
   playing_song?: boolean;
+  shadow_start?: boolean;
+  shadow_auto_stopped?: boolean;
 };
 
 const fetcher = async (path: string): Promise<RobotStatus> => {
@@ -40,6 +44,8 @@ const fetcher = async (path: string): Promise<RobotStatus> => {
       detail: raw.detail,
       in_shadow_mode: raw.in_shadow_mode,
       playing_song: raw.playing_song,
+      shadow_start: raw.shadow_start,              
+      shadow_auto_stopped: raw.shadow_auto_stopped,
     };
   } catch (e: any) {
     return {
@@ -68,14 +74,11 @@ export function useRobotConnectionPoller(
     let timeout: ReturnType<typeof setTimeout> | null = null;
 
     if (!isActive) {
-      // když screen není aktivní → nic nepollujeme
       setIsLoading(true);
       return () => {};
     }
 
     const poll = async () => {
-      //console.log("[POLL] /Kuka/status ->", new Date().toISOString());
-
       const result = await fetcher("/Kuka/status");
       if (!isMounted) return;
 
@@ -85,7 +88,6 @@ export function useRobotConnectionPoller(
       timeout = setTimeout(poll, intervalMs);
     };
 
-    // první načtení hned
     poll();
 
     return () => {

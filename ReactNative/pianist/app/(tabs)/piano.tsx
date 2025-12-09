@@ -1,5 +1,5 @@
 //piano.tsx
-import { StyleSheet, ScrollView, Pressable, View, Text } from 'react-native';
+import { StyleSheet, ScrollView, View, Text } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useState, useRef, useEffect } from 'react';
@@ -13,6 +13,9 @@ import { ROOM } from "../../constants/config";
 import { router } from "expo-router";
 import { Platform } from "react-native";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Pressable } from 'react-native-gesture-handler';
+
+
 
 export default function MainScreen() {
   const isFocused = useIsFocused();
@@ -29,28 +32,41 @@ export default function MainScreen() {
 
   //const { send, canControl, role, requestPerformer } = useWs(); // Toto je nova
 
-  const dotColor = isLoading
-  ? "#F59E0B"        
-  : status.online
-  ? "#22C55E"         
-  : "#EF4444";   
+  const dotColor = isLoading ? "#F59E0B" : status.online ? "#22C55E" : "#EF4444";
+  
+  //const dotColor = "#22C55E";
 
-  const label = isLoading
-    ? "Kontrola připojení..."
-    : status.online
-      ? "Robot připojen"
-      : "Robot odpojen";
+  const label = isLoading ? "Kontrola připojení..." : status.online ? "Robot připojen" : "Robot odpojen";
 
+  //const label = "Robot připojen";
+
+  
   // keys
   const keys = Array.from({ length: 22 }, (_, i) => i + 1);
   const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 15, 16, 18, 19, 20]; 
   const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [lastPayload, setLastPayload] = useState<any | null>(null);
 
+  const [isReleasing, setIsReleasing] = useState(false);
+
   const whiteKeyDownTs = useRef<{ [key: number]: number }>({});
   const blackKeyDownTs = useRef<{ [key: number]: number }>({});
 
   const [pressedKeys, setPressedKeys] = useState<{ [key: string]: boolean }>({});
+
+  // Add this state declaration near the top with your other state declarations
+const [dissablebutton, setDissablebutton] = useState(false);
+
+// Add this useEffect to update the button state based on status
+useEffect(() => {
+  if (!status.in_shadow_mode && !status.shadow_auto_stopped) {
+    setDissablebutton(true);
+  } else {
+    setDissablebutton(false);
+  }
+}, [status.in_shadow_mode, status.shadow_auto_stopped]);
+
+  
 
   // 1) Reakce na events – jen vizuální stav kláves
   useEffect(() => {
@@ -117,6 +133,8 @@ export default function MainScreen() {
 
   }, [canControl, status.online, isFocused]); 
 
+
+  
   const WHITE_W = 64; 
   const BLACK_W = 40;
   const WRAP_MARGIN = 3;
@@ -167,9 +185,10 @@ export default function MainScreen() {
     delete blackKeyDownTs.current[k];
   };
 
+
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.btnText}>
+      {/*<ThemedText style={styles.btnText}>
                   role: {role}
                 </ThemedText>
      {/*<ThemedText type="title">Piano</ThemedText>*/}
@@ -197,7 +216,7 @@ export default function MainScreen() {
             width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor
           }}/>
           
-          <ThemedText style={{ fontSize: 16, fontWeight: "600" }}>
+          <ThemedText style={{ fontSize: 16, fontWeight: "600",color: '#ffffff' }}>
             {label}
           </ThemedText>
 
@@ -212,27 +231,35 @@ export default function MainScreen() {
       </View>
 
       <View style={{ paddingTop: 10}}>
-      <Pressable
-                onPress={async () => {
-                  try {
-                      releasePerformer();
-                      router.navigate("/Main");
-                  }catch (err: any) {
-                    console.error(" failed:", err);
-                  }
-                }}
-                style={({ pressed }) => ({
-                  padding: 12,
-                  borderRadius: 8,
-                  backgroundColor: pressed ? "#004f49ff" : "#00A499",
-                  alignItems: "center",
-                })}
-              >
-                <Text style={styles.btnText}>
-                  Ukončit hraní
-                </Text>
-              </Pressable>
-              </View>
+        <Pressable
+          disabled={isReleasing}
+          onPress={async () => {
+            if (isReleasing) return;
+            
+            try {
+              setIsReleasing(true);
+              await releasePerformer();
+              await new Promise(resolve => setTimeout(resolve, 300));
+              router.replace("/Main");
+            } catch (err: any) {
+              console.error("Release performer failed:", err);
+            } finally {
+              setIsReleasing(false);
+            }
+          }}
+          style={({ pressed }) => ({
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: isReleasing ? "#888" : (pressed ? "#004f49ff" : "#00A499"),
+            alignItems: "center",
+            opacity: isReleasing ? 0.6 : 1,
+          })}
+        >
+          <Text style={styles.btnText}>
+            {isReleasing ? "Uvolňuji..." : "Ukončit hraní"}
+          </Text>
+        </Pressable>
+        </View>
 
       <View style={styles.keysWrap}>
         <ScrollView 
@@ -249,7 +276,8 @@ export default function MainScreen() {
         {keys.map((key) => (
               <View key={`white-${key}`} style={styles.whiteKeyWrap}>
                 <Pressable
-                  disabled={!canControl}
+                //  disabled={!canControl}
+                  disabled={dissablebutton || status.playing_song}
                   onPressIn={() => onWhitePressIn(key)}
                   onPressOut={() => onWhitePressOut(key)}
                   onLongPress={() => true}
