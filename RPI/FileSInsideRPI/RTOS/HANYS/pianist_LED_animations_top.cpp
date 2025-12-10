@@ -1,5 +1,12 @@
-// pianist_led_effects_and_snakes_debug_fixed.cpp
-// Debug-enhanced variant: prints FIFO existence/open/read/ACK/send errors and passive effect info
+// ================================================================
+// pianist_LED_animations_top.cpp
+//
+// Main LED control program for piano key animations using WS2811.
+// Handles real-time snake effects for keypress events, special
+// animation modes, passive idle mode with rotating background
+// effects, and inter-process communication via FIFO pipes.
+// All LED logic runs on Raspberry Pi using rpi_ws281x library.
+// ================================================================
 
 #include <ws2811/ws2811.h>
 #include <iostream>
@@ -29,7 +36,7 @@ static inline uint64_t millis() {
     return duration_cast<milliseconds>(steady_clock::now() - start).count();
 }
 
-// ================== MACRA / SETTINGS ==================
+// ================== MACROS / SETTINGS ==================
 #define LED_COUNT 200
 #define GPIO_PIN 18
 #define DMA 10
@@ -46,8 +53,8 @@ static inline uint64_t millis() {
 
 #define PIPE_PATH "/tmp/led/pipe"
 #define ACK_PIPE_PATH "/tmp/led/pipe_ack"
-#define INACTIVITY_SECONDS 20 // do passive rezimu po 20s necinnosti
-#define EFFECT_SWITCH_MS 10000 // jak dlouho jede jeden efekt v passive rezimu
+#define INACTIVITY_SECONDS 20 // enter passive mode after inactivity timeout
+#define EFFECT_SWITCH_MS 15000 // duration of each passive mode effect
 #define MAIN_LOOP_MS 20
 
 // ================== GLOBALS ==================
@@ -67,33 +74,33 @@ ws2811_t ledstring = {
 };
 
 struct Snake {
-    bool active = false;
-    int origin = 0;
-    int step = 0;
-    int prevStep = -1;
-    int targetLength = SNAKE_LENGTH;
-    int currentLength = 1;
-    uint8_t hue = 0;
-    steady_clock::time_point lastUpdate;
-    int stepInterval = SNAKE_STEP_MS;
+    bool active = false;        // snake instance enabled flag
+    int origin = 0;             // starting LED index
+    int step = 0;               // current step forward
+    int prevStep = -1;          // previous step for rendering
+    int targetLength = SNAKE_LENGTH; // length goal of snake
+    int currentLength = 1;      // current head-to-tail length
+    uint8_t hue = 0;            // snake color hue
+    steady_clock::time_point lastUpdate; // last step timestamp
+    int stepInterval = SNAKE_STEP_MS;    // ms per step
 };
 
 std::vector<Snake> snakes;
 
-uint16_t brightnessSum[LED_COUNT];
-uint32_t hueWeightedSum[LED_COUNT];
-uint8_t overlapCount[LED_COUNT];
+uint16_t brightnessSum[LED_COUNT];     // accum brightness per LED
+uint32_t hueWeightedSum[LED_COUNT];    // hue-weight accumulator
+uint8_t overlapCount[LED_COUNT];       // number of overlapping snakes
 
 std::atomic<bool> running(true);
 std::atomic<steady_clock::time_point> lastInputTime(steady_clock::now());
 
-int currentEffect = 0;
+int currentEffect = 0; // current passive-mode effect
 steady_clock::time_point effectStart = steady_clock::now();
 
-std::atomic<int> heldKey(-1);
-std::atomic<bool> holdActive(false);
-std::atomic<int> heldHueInt(0);
-std::atomic<int> specialEffect(-1);
+std::atomic<int> heldKey(-1);          // key currently held
+std::atomic<bool> holdActive(false);   // key hold indicator
+std::atomic<int> heldHueInt(0);        // random hue for hold preview
+std::atomic<int> specialEffect(-1);    // 1..3 special effect modes
 
 // simple helpers
 static inline int clampInt(int v, int lo, int hi) { if (v<lo) return lo; if (v>hi) return hi; return v; }
@@ -126,6 +133,9 @@ static inline uint32_t CHSV_to_RGB(uint8_t h, uint8_t s, uint8_t v) {
 }
 
 // ================== SNAKES (spawn/update/render) ==================
+// Snake system spawns short mirrored trails on keypress and moves them
+// outwards with fade. Multiple snakes may overlap.
+
 bool spawnSnake(int originIndex, uint8_t hue = 0) {
     if (originIndex < 0 || originIndex >= LED_COUNT - 1) return false;
     Snake s;
@@ -134,7 +144,8 @@ bool spawnSnake(int originIndex, uint8_t hue = 0) {
     s.step = 0;
     s.prevStep = 0;
     s.targetLength = SNAKE_LENGTH;
-    s.currentLength = 1;
+    s.currentLength = SNAKE_LENGTH;
+    s.step = 1;
     s.hue = hue;
     s.lastUpdate = steady_clock::now();
     {
@@ -189,6 +200,7 @@ void updateSnakes() {
 }
 
 void renderSnakesToBuffers() {
+    // clear accumulators
     static uint32_t contributors[LED_COUNT];
     for (int i = 0; i < LED_COUNT; ++i) {
         brightnessSum[i] = 0;
@@ -197,6 +209,7 @@ void renderSnakesToBuffers() {
         overlapCount[i] = 0;
     }
 
+    // accumulate brightness and hue contributions
     for (int s = 0; s < (int)snakes.size(); ++s) {
         if (!snakes[s].active) continue;
         int origin = snakes[s].origin;
@@ -207,6 +220,7 @@ void renderSnakesToBuffers() {
 
         for (int stepVal = fromStep; stepVal <= toStep; ++stepVal) {
             if (stepVal == 0) {
+                // origin and origin+1 handled once per snake
                 if (origin >= 0 && origin < LED_COUNT) {
                     uint32_t mask = (1UL << s);
                     if (!(contributors[origin] & mask)) {
@@ -249,6 +263,7 @@ void renderSnakesToBuffers() {
 }
 
 void composeAndShow() {
+    // fade existing content
     for (int i = 0; i < LED_COUNT; i++) {
         uint32_t c = ledstring.channel[0].leds[i];
         uint8_t r = (uint8_t)(((c >> 16) & 0xFF) * SNAKE_TIME_FADE);
@@ -257,6 +272,7 @@ void composeAndShow() {
         ledstring.channel[0].leds[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
     }
 
+    // blend new snake data
     for (int i = 0; i < LED_COUNT; i++) {
         if (brightnessSum[i] == 0) continue;
         uint16_t totalB = brightnessSum[i];
@@ -292,7 +308,11 @@ void composeAndShow() {
     }
 }
 
-// ================== PIPE THREAD (fixed ACK + original hue logic) ==================
+// ================== PIPE THREAD ==================
+// Handles FIFO input from the piano program. Each input contains a
+// sequence number and a value representing key state or special mode.
+// Sends ACK responses via second FIFO to confirm processing.
+
 void pipeThread()
 {
     int ack_fd = -1;
@@ -353,10 +373,13 @@ void pipeThread()
 
                 std::cout<<"[pipeThread] Received: seq="<<seq<<" value="<<value<<"\n";
 
-		lastInputTime.store(steady_clock::now());
+                lastInputTime.store(steady_clock::now());
 
-
-                // ---- původní logika ----
+                // ---- input handling for key events and special modes ----
+                // value meaning:
+                // 0 = key release
+                // 1..3 = trigger special animated effects
+                // >=4 = key down event for piano key index
 
                 if (value == 0)
                 {
@@ -385,12 +408,11 @@ void pipeThread()
                     holdActive.store(true);
                     heldKey.store(value);
 
-                    // === VRÁCENO – původní náhodný rozsah 0–255 ===
+                    // random hue for key hold preview
                     heldHueInt.store(rand() % 256);
                 }
 
-
-                // ========== ACK =============
+                // ========== ACK response =============
                 if (seq>=0)
                 {
                     if (ack_fd<0)
@@ -440,9 +462,9 @@ void pipeThread()
     std::cerr<<"[pipeThread] Pipe thread terminated\n";
 }
 
-
-
-// ================== EFFECTS (non-blocking; only fill buffer) ==================
+// ================== EFFECTS (non-blocking; GPU-like drawing) ==================
+// All effects below draw full-frame animations. Used in special-effect
+// modes and passive idle mode. No blocking delays inside.
 uint8_t gHue = 0;
 
 void effect_special1() {
@@ -508,20 +530,91 @@ void effect_special2() {
     }
 }
 
+
+struct Spark {
+    int pos;
+    uint8_t hue;      // 0 = gold, 0=white special (sat=0)
+    bool isWhite;
+    uint64_t tStart;  // ďż˝as spawn
+    uint32_t lifeMS;  // dďż˝lka fade out
+    bool active;
+};
+
+const int MAX_SPARKS = 80;
+static Spark sparks[MAX_SPARKS];
+static uint64_t t0 = millis();
+static uint32_t bgColor[LED_COUNT]; // uchovďż˝vďż˝ aktuďż˝lnďż˝ pozadďż˝
+
 void effect_special3() {
-    static uint64_t t0 = millis();
-    float t = (millis() - t0) * 0.003f;
+    uint64_t now = millis();
+    float t = (now - t0) * 0.0015f; // ďż˝as pro pozadďż˝
 
+    // --- pozadďż˝: tmavďż˝ -> azurovďż˝ ---
     for (int i = 0; i < LED_COUNT; i++) {
-        float wave = (sin(t + i * 0.12f) + 1.0f) * 0.5f;
+        float wave = (sin(t + i*0.05f) + 1.0f) * 0.5f; // 0..1
+        uint8_t r = 0;
+        uint8_t g = (uint8_t)(50 + wave * 105);   // 50..155
+        uint8_t b = (uint8_t)(100 + wave * 155);  // 100..255
+        bgColor[i] = (r<<16)|(g<<8)|b;
+        ledstring.channel[0].leds[i] = bgColor[i];
+    }
 
-        uint8_t val = 100 + wave * 120;   // soft gold brightness
-        uint8_t sat = 60;                 // elegant low-saturation gold
-        uint8_t hue = 30;                 // golden tone
+    // --- spawn vďż˝ce LED (bďż˝lďż˝ nebo zlatďż˝) ---
+    if ((rand()%3) == 0) { // cca 33% ďż˝ance kaďż˝dďż˝ volďż˝nďż˝
+        int spawnCount = 1 + rand()%3; // 1ďż˝3 LED
+        for (int s=0; s<spawnCount; s++) {
+            int p = rand() % LED_COUNT;
+            bool isWhite = (rand()%2==0); // true = bďż˝lďż˝, false = zlatďż˝
+            for (int i=0; i<MAX_SPARKS; i++) {
+                if (!sparks[i].active) {
+                    sparks[i].pos = p;
+                    sparks[i].isWhite = isWhite;
+                    sparks[i].hue = isWhite ? 0 : 30; // bďż˝lďż˝ = sat 0, zlatďż˝ = hue 30
+                    sparks[i].tStart = now;
+                    sparks[i].lifeMS = 800; // fade 0,8s
+                    sparks[i].active = true;
+                    break;
+                }
+            }
+        }
+    }
 
-        ledstring.channel[0].leds[i] = CHSV_to_RGB(hue, sat, val);
+    // --- render sparks s fade do aktuďż˝lnďż˝ barvy pozadďż˝ ---
+    for (int i=0;i<MAX_SPARKS;i++) {
+        if (!sparks[i].active) continue;
+        uint64_t age = now - sparks[i].tStart;
+        float fade = 1.0f - ((float)age / sparks[i].lifeMS);
+        if (fade <= 0.0f) { sparks[i].active = false; continue; }
+
+        int p = sparks[i].pos;
+        if (p < 0 || p >= LED_COUNT) continue;
+
+        // background color of actual LED
+        uint32_t bg = bgColor[p];
+        uint8_t bgR = (bg >> 16) & 0xFF;
+        uint8_t bgG = (bg >> 8) & 0xFF;
+        uint8_t bgB = bg & 0xFF;
+
+        uint8_t r,g,b;
+
+        if (sparks[i].isWhite) {
+            r = (uint8_t)(255*fade + bgR*(1.0f-fade));
+            g = (uint8_t)(255*fade + bgG*(1.0f-fade));
+            b = (uint8_t)(255*fade + bgB*(1.0f-fade));
+        } else {
+            // zlata
+            uint32_t sparkColor = CHSV_to_RGB(30,255,(uint8_t)(255*fade));
+            r = (uint8_t)((sparkColor>>16 & 0xFF)*fade + bgR*(1.0f-fade));
+            g = (uint8_t)((sparkColor>>8 & 0xFF)*fade + bgG*(1.0f-fade));
+            b = (uint8_t)((sparkColor & 0xFF)*fade + bgB*(1.0f-fade));
+        }
+
+        ledstring.channel[0].leds[p] = (r<<16)|(g<<8)|b;
     }
 }
+
+
+
 
 void effect_rotate_white() {
     static int offset = 0;
@@ -532,6 +625,7 @@ void effect_rotate_white() {
     offset = (offset + 1) % 4;
 }
 
+
 void effect_color_shift() {
     static uint8_t hue = 0;
     for (int i = 0; i < LED_COUNT; ++i) {
@@ -539,6 +633,7 @@ void effect_color_shift() {
     }
     hue += 2;
 }
+
 
 void effect_rainbow_with_glitter() {
     for (int i = 0; i < LED_COUNT; ++i) {
@@ -552,18 +647,8 @@ void effect_rainbow_with_glitter() {
     gHue++;
 }
 
-void effect_toceniLedekbila() {
-    static int phase = 0;
-    for (int i = 0; i < LED_COUNT; ++i) ledstring.channel[0].leds[i] = 0;
-    int o = phase % 4;
-    for (int i = 0; i < LED_COUNT; i += 4) {
-        int idx = i + o;
-        if (idx < LED_COUNT) ledstring.channel[0].leds[idx] = CHSV_to_RGB(255, 0, 160);
-    }
-    phase = (phase + 1) % 4;
-}
 
-void effect_toceniLedekbarva_paleta() {
+void effect_rotateColor_LED_palett() {
     static uint8_t idx = 0;
     for (int i = 0; i < LED_COUNT; ++i) {
         uint8_t block = (i / 6);
@@ -571,15 +656,6 @@ void effect_toceniLedekbarva_paleta() {
         ledstring.channel[0].leds[i] = CHSV_to_RGB(hue, 200, 150);
     }
     idx += 3;
-}
-
-void effect_prolinani() {
-    static uint8_t idx = 0;
-    idx++;
-    for (int i = 0; i < LED_COUNT; i++) {
-        uint8_t hue = idx + i * 3;
-        ledstring.channel[0].leds[i] = CHSV_to_RGB(hue, 255, 255);
-    }
 }
 
 void effect_confetti() {
@@ -1106,91 +1182,172 @@ void effect_starfall() {
     }
 }
 
+
+// Knight Rider effect - time-based fade, LEDs 55-145
+void effect_knightRider() {
+    static int pos = 55;
+    static int dir = 1;
+    static int trailLen = 30;
+    static bool shrinking = false;
+    static uint8_t brightness[256] = {0}; // red
+    
+    const int maxTrail = 30;
+    const int start = 55;
+    const int end = 142;
+    const uint8_t hue = 0;
+    const uint8_t fadeStep = 4; // time-based fade in ms = less slower
+
+    // fade all LEDs in segment
+    for (int i = start; i <= end; i++) {
+        if (brightness[i] > fadeStep)
+            brightness[i] -= fadeStep;
+        else
+            brightness[i] = 0;
+        ledstring.channel[0].leds[i] = CHSV_to_RGB(hue, 255, brightness[i]);
+    }
+
+    // set head LED to full brightness
+    brightness[pos] = 255;
+    ledstring.channel[0].leds[pos] = CHSV_to_RGB(hue, 255, 255);
+
+    // check edges to start shrinking
+    if (!shrinking) {
+        if ((dir > 0 && pos >= end) || (dir < 0 && pos <= start)) {
+            shrinking = true;
+        }
+    }
+
+    // move head
+    pos += dir;
+
+    // shrink or grow trail
+    if (shrinking) {
+        if (trailLen > 1) {
+            trailLen--;
+        } else {
+            dir = -dir;
+            shrinking = false;
+        }
+    } else {
+        if (trailLen < maxTrail) trailLen++;
+    }
+
+
+    if (pos > end) pos = end;
+    if (pos < start) pos = start;
+}
+
+
+
 // Effects array
 typedef void(*effect_fn)();
 effect_fn effects[] = {
-    effect_toceniLedekbila,
-    effect_toceniLedekbarva_paleta,
-    effect_prolinani,
-    effect_rainbow_with_glitter,
-    effect_confetti,
-    effect_kometa,
-    effect_bpm,
-    effect_juggle,
-    effect_cylon,
-    effect_fire2012,
-    effect_sinelon,
-    effect_meteor,
-    effect_oceanWaves,
-    effect_rotate_white,
-    effect_color_shift
+	effect_knightRider,				//
+	effect_rotateColor_LED_palett,	// upravit paletu na zajimavou
+	effect_dualWaveCollision,		//
+	effect_confetti,				//
+	//effect_aurora,					//
+    effect_rainbow_with_glitter,	//
+    effect_kometa,					// absolutnÄ› nedÄ›lĂˇ co by mÄ›la
+    effect_bpm,						//
+    effect_juggle,					// mozna vicero najednou?
+    //effect_cylon,					// to je %x ledek... neni moc hezke
+	effect_waveSpawner,				//
+    //effect_fire2012,				// nehodi se
+    //effect_sinelon,					// to je %x ledek... neni moc hezke
+    effect_meteor,					//
+    effect_oceanWaves,				//
+    effect_rotate_white,			// opravit smer sem a tam, ne jen jizda na jednu stranu
+    effect_color_shift,				//
+	effect_fireworks,				//
+	effect_starfall,				//
+	effect_christmasSparkle,		//
+	effect_matrix,					//
+	//effect_policeStrobe,			// neni hezke
 };
 const int EFFECT_COUNT = sizeof(effects) / sizeof(effects[0]);
 
 // ================== MAIN ==================
 int main() {
-    // allocate buffer for rpi_ws281x
+    // allocate LED buffer for rpi_ws281x driver
     ledstring.channel[0].leds = new uint32_t[LED_COUNT];
     for (int i = 0; i < LED_COUNT; ++i) ledstring.channel[0].leds[i] = 0;
 
+    // initialize WS2811 driver (DMA + PWM)
     if (ws2811_init(&ledstring) != WS2811_SUCCESS) {
         std::cerr << "ws2811_init failed!" << std::endl;
         delete[] ledstring.channel[0].leds;
         return -1;
     }
 
+    // reset inactivity timer
     lastInputTime.store(steady_clock::now());
 
+    // launch FIFO reader thread
     std::thread reader(pipeThread);
     std::cout << "Listening on " << PIPE_PATH << " ..." << std::endl;
 
-    bool wasPassive = false;
-    int lastPrintedEffect = -1;
+    bool wasPassive = false;          // remembers if passive mode was active last loop
+    int lastPrintedEffect = -1;       // used to print effect changes only once
 
+    // ========== MAIN LOOP ==========
     while (running) {
+        // update snake physics and accumulate brightness buffers
         updateSnakes();
         renderSnakesToBuffers();
 
+        // check for idle -> passive mode activation
         auto now = steady_clock::now();
         auto idleSec = duration_cast<seconds>(now - lastInputTime.load()).count();
         bool passiveMode = (idleSec > INACTIVITY_SECONDS);
 
         if (passiveMode) {
+            // cycle passive effects after timeout
             auto ms = duration_cast<milliseconds>(now - effectStart).count();
             if (ms > EFFECT_SWITCH_MS) {
                 currentEffect = (currentEffect + 1) % EFFECT_COUNT;
                 effectStart = now;
             }
 
-            // print passive effect info once per change
+            // print effect change once
             if (!wasPassive || lastPrintedEffect != currentEffect) {
-                std::cout << "[MAIN] Passive mode active. Playing effect index: " << currentEffect << '\n';
+                std::cout << "[MAIN] Passive mode active. Playing effect index: "
+                          << currentEffect << '\n';
                 lastPrintedEffect = currentEffect;
             }
 
-            // passive effect overwrites entire strip
+            // draw and show passive effect (full-strip overwrite)
             effects[currentEffect]();
             ws2811_render(&ledstring);
 
             wasPassive = true;
         }
         else {
+            // entering active mode: clear previous passive content
             if (wasPassive) {
                 for (int i = 0; i < LED_COUNT; ++i) ledstring.channel[0].leds[i] = 0;
-                for (int i = 0; i < LED_COUNT; ++i) { brightnessSum[i]=0; hueWeightedSum[i]=0; overlapCount[i]=0; }
+                for (int i = 0; i < LED_COUNT; ++i) {
+                    brightnessSum[i] = 0;
+                    hueWeightedSum[i] = 0;
+                    overlapCount[i] = 0;
+                }
                 wasPassive = false;
                 std::cout << "[MAIN] Exiting passive mode (activity detected)" << '\n';
             }
 
+            // special effect mode (1..3) overrides everything
             if (specialEffect.load() != -1) {
                 int se = specialEffect.load();
                 if (se == 1) effect_special1();
                 else if (se == 2) effect_special2();
                 else if (se == 3) effect_special3();
                 ws2811_render(&ledstring);
-            } else {
+            }
+            else {
+                // normal snake rendering pipeline
                 composeAndShow();
 
+                // show hold-preview (two LEDs lit with chosen hue)
                 if (holdActive.load()) {
                     int hk = heldKey.load();
                     int hue = heldHueInt.load();
@@ -1206,9 +1363,11 @@ int main() {
             }
         }
 
+        // main loop refresh rate
         std::this_thread::sleep_for(std::chrono::milliseconds(MAIN_LOOP_MS));
     }
 
+    // shutdown routine
     reader.join();
     ws2811_fini(&ledstring);
     delete[] ledstring.channel[0].leds;

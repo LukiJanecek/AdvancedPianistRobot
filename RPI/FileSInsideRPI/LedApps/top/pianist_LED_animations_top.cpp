@@ -356,7 +356,7 @@ void pipeThread()
 		lastInputTime.store(steady_clock::now());
 
 
-                // ---- p�vodn� logika ----
+                // ---- pďż˝vodnďż˝ logika ----
 
                 if (value == 0)
                 {
@@ -385,7 +385,7 @@ void pipeThread()
                     holdActive.store(true);
                     heldKey.store(value);
 
-                    // === VR�CENO � p�vodn� n�hodn� rozsah 0�255 ===
+                    // === VRďż˝CENO ďż˝ pďż˝vodnďż˝ nďż˝hodnďż˝ rozsah 0ďż˝255 ===
                     heldHueInt.store(rand() % 256);
                 }
 
@@ -508,29 +508,92 @@ void effect_special2() {
     }
 }
 
+
+
+struct Spark {
+    int pos;
+    uint8_t hue;      // 0 = gold, 0=white special (sat=0)
+    bool isWhite;
+    uint64_t tStart;  // čas spawn
+    uint32_t lifeMS;  // délka fade out
+    bool active;
+};
+
+const int MAX_SPARKS = 80;
+static Spark sparks[MAX_SPARKS];
+static uint64_t t0 = millis();
+static uint32_t bgColor[LED_COUNT]; // uchovává aktuální pozadí
+
 void effect_special3() {
-    static uint64_t t0 = millis();
-    float t = (millis() - t0) * 0.0025f; // ovl�d� rychlost vln
+    uint64_t now = millis();
+    float t = (now - t0) * 0.0015f; // čas pro pozadí
 
+    // --- pozadí: tmavá -> azurová ---
     for (int i = 0; i < LED_COUNT; i++) {
-        // jemn� pulzov�n� cel�ho p�sku
-        float wave = (sin(t + i * 0.05f) + 1.0f) * 0.5f; // 0..1
-        uint8_t val = (uint8_t)(150 + wave * 100);       // 150..250 brightness
-        uint8_t sat = 60;                                // elegantn� n�zk� saturace
-        uint8_t hue = 30;                                // zlat� t�n
-
-        ledstring.channel[0].leds[i] = CHSV_to_RGB(hue, sat, val);
+        float wave = (sin(t + i*0.05f) + 1.0f) * 0.5f; // 0..1
+        uint8_t r = 0;
+        uint8_t g = (uint8_t)(50 + wave * 105);   // 50..155
+        uint8_t b = (uint8_t)(100 + wave * 155);  // 100..255
+        bgColor[i] = (r<<16)|(g<<8)|b;
+        ledstring.channel[0].leds[i] = bgColor[i];
     }
 
-    // n�hodn� jemn� jiskry
-    if ((rand() & 0xFF) < 6) { // cca 2-3% �ance ka�d� frame
-        int p = rand() % LED_COUNT;
-        uint8_t sparkleVal = 255;
-        uint8_t sparkleSat = 20;
-        uint8_t sparkleHue = 40 + (rand() % 10); // sv�tlej�� zlato/b�l�
-        ledstring.channel[0].leds[p] = CHSV_to_RGB(sparkleHue, sparkleSat, sparkleVal);
+    // --- spawn více LED (bílé nebo zlaté) ---
+    if ((rand()%3) == 0) { // cca 33% šance každé volání
+        int spawnCount = 1 + rand()%3; // 1–3 LED
+        for (int s=0; s<spawnCount; s++) {
+            int p = rand() % LED_COUNT;
+            bool isWhite = (rand()%2==0); // true = bílá, false = zlatá
+            for (int i=0; i<MAX_SPARKS; i++) {
+                if (!sparks[i].active) {
+                    sparks[i].pos = p;
+                    sparks[i].isWhite = isWhite;
+                    sparks[i].hue = isWhite ? 0 : 30; // bílá = sat 0, zlatá = hue 30
+                    sparks[i].tStart = now;
+                    sparks[i].lifeMS = 800; // fade 0,8s
+                    sparks[i].active = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // --- render sparks s fade do aktuální barvy pozadí ---
+    for (int i=0;i<MAX_SPARKS;i++) {
+        if (!sparks[i].active) continue;
+        uint64_t age = now - sparks[i].tStart;
+        float fade = 1.0f - ((float)age / sparks[i].lifeMS);
+        if (fade <= 0.0f) { sparks[i].active = false; continue; }
+
+        int p = sparks[i].pos;
+        if (p < 0 || p >= LED_COUNT) continue;
+
+        // barva pozadí v aktuálním bodě
+        uint32_t bg = bgColor[p];
+        uint8_t bgR = (bg >> 16) & 0xFF;
+        uint8_t bgG = (bg >> 8) & 0xFF;
+        uint8_t bgB = bg & 0xFF;
+
+        uint8_t r,g,b;
+
+        if (sparks[i].isWhite) {
+            r = (uint8_t)(255*fade + bgR*(1.0f-fade));
+            g = (uint8_t)(255*fade + bgG*(1.0f-fade));
+            b = (uint8_t)(255*fade + bgB*(1.0f-fade));
+        } else {
+            // zlatá
+            uint32_t sparkColor = CHSV_to_RGB(30,255,(uint8_t)(255*fade));
+            r = (uint8_t)((sparkColor>>16 & 0xFF)*fade + bgR*(1.0f-fade));
+            g = (uint8_t)((sparkColor>>8 & 0xFF)*fade + bgG*(1.0f-fade));
+            b = (uint8_t)((sparkColor & 0xFF)*fade + bgB*(1.0f-fade));
+        }
+
+        ledstring.channel[0].leds[p] = (r<<16)|(g<<8)|b;
     }
 }
+
+
+
 
 void effect_rotate_white() {
     static int offset = 0;
@@ -540,6 +603,7 @@ void effect_rotate_white() {
     }
     offset = (offset + 1) % 4;
 }
+
 
 void effect_color_shift() {
     static uint8_t hue = 0;
@@ -1114,13 +1178,13 @@ effect_fn effects[] = {
 	effect_confetti,				//
 	effect_aurora,					//
     effect_rainbow_with_glitter,	//
-    effect_kometa,					// absolutně nedělá co by měla
+    effect_kometa,					// absolutnÄ› nedÄ›lĂˇ co by mÄ›la
     effect_bpm,						//
     effect_juggle,					// mozna vicero najednou?
-    effect_cylon,					// to je %x ledek... neni moc hezke
+    //effect_cylon,					// to je %x ledek... neni moc hezke
 	effect_waveSpawner,				//
     //effect_fire2012,				// nehodi se
-    effect_sinelon,					// to je %x ledek... neni moc hezke
+    //effect_sinelon,					// to je %x ledek... neni moc hezke
     effect_meteor,					//
     effect_oceanWaves,				//
     effect_rotate_white,			// opravit smer sem a tam, ne jen jizda na jednu stranu
