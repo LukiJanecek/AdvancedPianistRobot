@@ -1,5 +1,5 @@
 &ACCESS RVP
-&REL 285
+&REL 289
 &PARAM EDITMASK = *
 &PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
 &PARAM DISKPATH = KRC:\R1\Program\_KLAVIRISTA_V2
@@ -34,7 +34,7 @@ $OV_PRO=50
 MsgDialog(button, "Nastav rychlost prehravani programu na 50"," Klavirista"," ","Nastaveno")
 
 pyShadow = FALSE
-PyShadowStart = FALSE
+PyShadowStart = TRUE
 SPTP $POS_ACT WITH $VEL_AXIS[1] = SVEL_JOINT(10.0), $TOOL = STOOL2(FP8), $BASE = SBASE(FP8.BASE_NO), $IPO_MODE = SIPO_MODE(FP8.IPO_FRAME), $LOAD = SLOAD(FP8.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PPDAT8), $APO = SAPO_PTP(PPDAT8), $GEAR_JERK[1] = SGEAR_JERK(PPDAT8), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
 
 LOOP
@@ -59,20 +59,25 @@ SPTP XP8 WITH $VEL_AXIS[1] = SVEL_JOINT(10.0), $TOOL = STOOL2(FP8), $BASE = SBAS
 
 IF $IN[1] OR PyREGGAE THEN
 PyPlayingSong = TRUE
+PySongNumber = 1
 SONG_1()
 ENDIF
 
 IF $IN[2] OR PySTUPNICE THEN
 PyPlayingSong = TRUE
+PySongNumber = 2
 ;PULSE($OUT[2], TRUE, 0.5)
 SONG_2()
 ENDIF
 
 IF $IN[3] OR PyBEETHOVEN THEN
 PyPlayingSong = TRUE
+PySongNumber = 3
 ;PULSE($OUT[3], TRUE, 0.5)
 SONG_3()
 ENDIF
+
+
 IF (PyShadow AND PyShadowStart) then
    
    PIANO_ON_OFF()
@@ -86,7 +91,6 @@ SPTP XSHADOW WITH $VEL_AXIS[1] = SVEL_JOINT(50.0), $TOOL = STOOL2(FSHADOW), $BAS
 WHILE PyShadow
 
   PyShadowFb = TRUE
-  
 
  ;PTP SHADOW
 
@@ -101,6 +105,7 @@ ENDIF
 
 PyShadowFb = FALSE
 PyPlayingSong = FALSE
+PySongNumber = 0
 
 MoveLeft = NOT MoveLeft
 ENDLOOP
