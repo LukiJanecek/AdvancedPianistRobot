@@ -1,12 +1,16 @@
-// ================================================================
-// pianist_LED_animations_top.cpp
-//
-// Main LED control program for piano key animations using WS2811.
-// Handles real-time snake effects for keypress events, special
-// animation modes, passive idle mode with rotating background
-// effects, and inter-process communication via FIFO pipes.
-// All LED logic runs on Raspberry Pi using rpi_ws281x library.
-// ================================================================
+//=====================================================================================
+// Name        : pianist_LED_animations_top.cpp
+// Author      : Bc. Jan Besta
+// Version     :
+// Copyright   : VSB-TUO FEI
+// Description :
+//  - LED effects and animations with library rpi_ws281x for top LED strip under piano
+//  - Pipe/FIFO input handling
+//  - Special effect song mode (1..3) with timeout
+//  - Note-driven breath animations (>=4, released by 0)
+//  - Passive / idle mode fallback
+//  - Clear separation of state, rendering and input
+//=====================================================================================
 
 #include <ws2811/ws2811.h>
 #include <iostream>
@@ -52,7 +56,7 @@ static inline uint64_t millis() {
 #define SATURATION 230
 
 #define PIPE_PATH "/tmp/led/pipe"
-#define ACK_PIPE_PATH "/tmp/led/pipe_ack"
+#define ACK_PIPE_PATH "/tmp/led/ack_pipe"
 #define INACTIVITY_SECONDS 20 // enter passive mode after inactivity timeout
 #define EFFECT_SWITCH_MS 15000 // duration of each passive mode effect
 #define MAIN_LOOP_MS 20
@@ -97,10 +101,12 @@ std::atomic<steady_clock::time_point> lastInputTime(steady_clock::now());
 int currentEffect = 0; // current passive-mode effect
 steady_clock::time_point effectStart = steady_clock::now();
 
+
 std::atomic<int> heldKey(-1);          // key currently held
 std::atomic<bool> holdActive(false);   // key hold indicator
 std::atomic<int> heldHueInt(0);        // random hue for hold preview
 std::atomic<int> specialEffect(-1);    // 1..3 special effect modes
+std::atomic<bool> songRunning(false);  // special effect -1 logic
 
 // simple helpers
 static inline int clampInt(int v, int lo, int hi) { if (v<lo) return lo; if (v>hi) return hi; return v; }
@@ -308,13 +314,9 @@ void composeAndShow() {
     }
 }
 
-// ================== PIPE THREAD ==================
-// Handles FIFO input from the piano program. Each input contains a
-// sequence number and a value representing key state or special mode.
-// Sends ACK responses via second FIFO to confirm processing.
 
-void pipeThread()
-{
+// ================== PIPE THREAD ==================
+void pipeThread() {
     int ack_fd = -1;
     bool writerConnected = false;
 
@@ -324,143 +326,111 @@ void pipeThread()
                   << strerror(errno) << "\n";
         return;
     }
-    std::cout << "[pipeThread] FIFO opened (non-blocking), fd=" << fd << "\n";
+
+    std::cout << "[pipeThread] FIFO opened, fd=" << fd << "\n";
 
     std::string acc;
     acc.reserve(1024);
 
     while (running) {
-
         char buf[256];
-        ssize_t n = read(fd, buf, sizeof(buf)-1);
+        ssize_t n = read(fd, buf, sizeof(buf) - 1);
 
-        if (n > 0)
-        {
-            if (!writerConnected) {
-                std::cout << "[pipeThread] Writer connected\n";
-                writerConnected = true;
-            }
+        if (n > 0) {
             buf[n] = 0;
             acc.append(buf, n);
 
             size_t pos;
-            while ((pos = acc.find('\n')) != std::string::npos)
-            {
+            while ((pos = acc.find('\n')) != std::string::npos) {
                 std::string line = acc.substr(0, pos);
-                acc.erase(0, pos+1);
+                acc.erase(0, pos + 1);
 
-                if (!line.empty() && line.back()=='\r')
-                    line.pop_back();
+                int seq = -1;
+                int value = -1;
 
-                int seq=-1, value=-1;
-                size_t sep=line.find(':');
+                size_t sep = line.find(':');
+                if (sep == std::string::npos)
+                    continue;
 
-                if (sep!=std::string::npos)
-                {
-                    try {
-                        seq   = std::stoi(line.substr(0,sep));
-                        value = std::stoi(line.substr(sep+1));
-                    }
-                    catch(...) {
-                        std::cerr<<"[pipeThread] Parse error: '"<<line<<"'\n";
-                        continue;
-                    }
-                }
-                else{
-                    std::cerr<<"[pipeThread] Parse error (no colon): '"<<line<<"'\n";
+                try {
+                    seq   = std::stoi(line.substr(0, sep));
+                    value = std::stoi(line.substr(sep + 1));
+                } catch (...) {
                     continue;
                 }
 
-                std::cout<<"[pipeThread] Received: seq="<<seq<<" value="<<value<<"\n";
-
                 lastInputTime.store(steady_clock::now());
 
-                // ---- input handling for key events and special modes ----
-                // value meaning:
-                // 0 = key release
-                // 1..3 = trigger special animated effects
-                // >=4 = key down event for piano key index
+                // =====================================
+                // INPUT LOGIC
+                // =====================================
 
-                if (value == 0)
-                {
-                    if (specialEffect.load()!=-1)
-                        specialEffect.store(-1);
+                if (value >= 1 && value <= 3) {
+                    // START SONG
+                    songRunning.store(true);
+                    specialEffect.store(value);
 
-                    else if (holdActive.load())
-                    {
-                        int hk = heldKey.load();
-                        int hue=heldHueInt.load();
-                        if (hk>=1 && hk<=LED_COUNT-1)
-                            spawnSnake(hk-1,(uint8_t)hue);
+                    holdActive.store(false);
+                    heldKey.store(-1);
+
+                    std::cout << "[pipeThread] Song started: "
+                              << value << "\n";
+                }
+                else if (value == -1) {
+                    // STOP SONG
+                    songRunning.store(false);
+                    specialEffect.store(-1);
+
+                    holdActive.store(false);
+                    heldKey.store(-1);
+
+                    std::cout << "[pipeThread] Song stopped (-1)\n";
+                }
+                else if (value == 0) {
+                    // IGNORE key release during song
+                    if (!songRunning.load() && holdActive.load()) {
+                        int hk  = heldKey.load();
+                        int hue = heldHueInt.load();
+                        if (hk >= 1 && hk <= LED_COUNT - 1)
+                            spawnSnake(hk - 1, (uint8_t)hue);
 
                         holdActive.store(false);
                         heldKey.store(-1);
                     }
                 }
-                else if (value>=1 && value<=3)
-                {
-                    specialEffect.store(value);
-                    holdActive.store(false);
-                    heldKey.store(-1);
-                }
-                else if (value>=4 && value<=LED_COUNT-1)
-                {
-                    holdActive.store(true);
-                    heldKey.store(value);
-
-                    // random hue for key hold preview
-                    heldHueInt.store(rand() % 256);
-                }
-
-                // ========== ACK response =============
-                if (seq>=0)
-                {
-                    if (ack_fd<0)
-                    {
-                        ack_fd=open(ACK_PIPE_PATH,O_WRONLY|O_NONBLOCK);
-                        if (ack_fd>=0)
-                            std::cout<<"[pipeThread] ACK pipe opened, fd="
-                                     <<ack_fd<<"\n";
-                        else
-                            std::cerr<<"[pipeThread] ERROR opening ACK pipe: "
-                                     <<strerror(errno)<<"\n";
+                else if (value >= 4 && value <= LED_COUNT - 1) {
+                    if (!songRunning.load()) {
+                        holdActive.store(true);
+                        heldKey.store(value);
+                        heldHueInt.store(rand() % 256);
                     }
+                }
 
-                    if (ack_fd>=0)
-                    {
+                // ACK
+                if (seq >= 0) {
+                    if (ack_fd < 0)
+                        ack_fd = open(ACK_PIPE_PATH,
+                                      O_WRONLY | O_NONBLOCK);
+
+                    if (ack_fd >= 0) {
                         char ackbuf[64];
-                        int len=snprintf(ackbuf,sizeof(ackbuf),
-                                         "ACK:%d\n",seq);
-
-                        if (write(ack_fd,ackbuf,len)!=len)
-                            std::cerr<<"[pipeThread] ERROR writing ACK for seq="
-                                     <<seq<<"\n";
+                        int len = snprintf(ackbuf, sizeof(ackbuf),
+                                           "ACK:%d\n", seq);
+                        write(ack_fd, ackbuf, len);
                     }
                 }
-            }//while line
-        }
-        else if (n==0)
-        {
-            if (writerConnected){
-                std::cout<<"[pipeThread] Writer disconnected\n";
-                writerConnected=false;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        else if (n<0 && errno!=EAGAIN)
-        {
-            std::cerr<<"[pipeThread] read() error: "<<strerror(errno)<<"\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        else {
+            std::this_thread::sleep_for(milliseconds(5));
         }
-        else{
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
-    }//while running
+    }
 
     close(fd);
-    if (ack_fd>=0) close(ack_fd);
-    std::cerr<<"[pipeThread] Pipe thread terminated\n";
+    if (ack_fd >= 0)
+        close(ack_fd);
 }
+
 
 // ================== EFFECTS (non-blocking; GPU-like drawing) ==================
 // All effects below draw full-frame animations. Used in special-effect
@@ -513,7 +483,7 @@ void effect_special2() {
         // blend in +-12 LED zone
         float blendZone = 12.0f;
         float f = dist / blendZone;
-        
+
         if (f < -1) f = -1;
         if (f >  1) f =  1;
 
@@ -872,7 +842,7 @@ void effect_waveSpawner() {
     }
 
     // spawn new wave sometimes
-    if ((rand() % 20) == 0) { 
+    if ((rand() % 20) == 0) {
         for (int i = 0; i < MAX_WAVES; i++) {
             if (!waves[i].active) {
                 waves[i].active = true;
@@ -918,7 +888,7 @@ void effect_christmasSparkle() {
         ledstring.channel[0].leds[i] = (r << 16) | (g << 8) | b;
     }
 
-    for (int s = 0; s < 8; s++) {  
+    for (int s = 0; s < 8; s++) {
         int p = rand() % LED_COUNT;
         uint8_t hue = (rand() % 2) ? 0 : 96; // red / green
         uint8_t val = 200 + rand() % 55;
@@ -938,7 +908,7 @@ RGB addRGB(const RGB &a, const RGB &b) {
 
 RGB CHSV_to_RGB_struct(uint8_t h, uint8_t s, uint8_t v) {
     uint32_t c = CHSV_to_RGB(h, s, v);
-    return { 
+    return {
         (uint8_t)((c >> 16) & 0xFF),
         (uint8_t)((c >> 8) & 0xFF),
         (uint8_t)(c & 0xFF)
@@ -1190,7 +1160,7 @@ void effect_knightRider() {
     static int trailLen = 30;
     static bool shrinking = false;
     static uint8_t brightness[256] = {0}; // red
-    
+
     const int maxTrail = 30;
     const int start = 55;
     const int end = 142;
@@ -1248,7 +1218,7 @@ effect_fn effects[] = {
 	effect_confetti,				//
 	//effect_aurora,					//
     effect_rainbow_with_glitter,	//
-    effect_kometa,					// absolutnÄ› nedÄ›lĂˇ co by mÄ›la
+    //effect_kometa,					// absolutnÄ› nedÄ›lĂˇ co by mÄ›la
     effect_bpm,						//
     effect_juggle,					// mozna vicero najednou?
     //effect_cylon,					// to je %x ledek... neni moc hezke
@@ -1257,119 +1227,162 @@ effect_fn effects[] = {
     //effect_sinelon,					// to je %x ledek... neni moc hezke
     effect_meteor,					//
     effect_oceanWaves,				//
-    effect_rotate_white,			// opravit smer sem a tam, ne jen jizda na jednu stranu
+    //effect_rotate_white,			// opravit smer sem a tam, ne jen jizda na jednu stranu
     effect_color_shift,				//
 	effect_fireworks,				//
-	effect_starfall,				//
+	//effect_starfall,				//
 	effect_christmasSparkle,		//
 	effect_matrix,					//
 	//effect_policeStrobe,			// neni hezke
 };
 const int EFFECT_COUNT = sizeof(effects) / sizeof(effects[0]);
 
+
 // ================== MAIN ==================
 int main() {
-    // allocate LED buffer for rpi_ws281x driver
+    // allocate LED buffer
     ledstring.channel[0].leds = new uint32_t[LED_COUNT];
-    for (int i = 0; i < LED_COUNT; ++i) ledstring.channel[0].leds[i] = 0;
+    for (int i = 0; i < LED_COUNT; ++i)
+        ledstring.channel[0].leds[i] = 0;
 
-    // initialize WS2811 driver (DMA + PWM)
+    // init WS2811
     if (ws2811_init(&ledstring) != WS2811_SUCCESS) {
-        std::cerr << "ws2811_init failed!" << std::endl;
+        std::cerr << "ws2811_init failed!\n";
         delete[] ledstring.channel[0].leds;
         return -1;
     }
 
-    // reset inactivity timer
     lastInputTime.store(steady_clock::now());
 
-    // launch FIFO reader thread
     std::thread reader(pipeThread);
-    std::cout << "Listening on " << PIPE_PATH << " ..." << std::endl;
+    std::cout << "Listening on " << PIPE_PATH << " ...\n";
 
-    bool wasPassive = false;          // remembers if passive mode was active last loop
-    int lastPrintedEffect = -1;       // used to print effect changes only once
+    bool wasPassive = false;
+    int lastPrintedEffect = -1;
+    bool lastSongRunning = false;
 
-    // ========== MAIN LOOP ==========
+    // ================== MAIN LOOP ==================
     while (running) {
-        // update snake physics and accumulate brightness buffers
+
+        // -------------------------------------------------
+        // SONG MODE (absolute priority)
+        // -------------------------------------------------
+        if (songRunning.load()) {
+
+            int se = specialEffect.load();
+
+            // render selected song effect continuously
+            if (se == 1)      effect_special1();
+            else if (se == 2) effect_special2();
+            else if (se == 3) effect_special3();
+
+            ws2811_render(&ledstring);
+
+            // reset passive + snakes state ONCE on song entry
+            if (!lastSongRunning) {
+                for (int i = 0; i < LED_COUNT; ++i) {
+                    brightnessSum[i]  = 0;
+                    hueWeightedSum[i] = 0;
+                    overlapCount[i]   = 0;
+                }
+                wasPassive = false;
+                std::cout << "[MAIN] Song mode entered\n";
+            }
+
+            lastSongRunning = true;
+            std::this_thread::sleep_for(milliseconds(MAIN_LOOP_MS));
+            continue;   // NOTHING else may run during song
+        }
+
+        // -------------------------------------------------
+        // SONG JUST ENDED ďż˝ CLEAN FRAME ONCE
+        // -------------------------------------------------
+        if (lastSongRunning && !songRunning.load()) {
+            for (int i = 0; i < LED_COUNT; ++i)
+                ledstring.channel[0].leds[i] = 0;
+
+            ws2811_render(&ledstring);
+
+            lastSongRunning = false;
+            std::cout << "[MAIN] Song mode exited\n";
+        }
+
+        // -------------------------------------------------
+        // NORMAL MODE (snakes + idle)
+        // -------------------------------------------------
+
         updateSnakes();
         renderSnakesToBuffers();
 
-        // check for idle -> passive mode activation
         auto now = steady_clock::now();
-        auto idleSec = duration_cast<seconds>(now - lastInputTime.load()).count();
+        auto idleSec =
+            duration_cast<seconds>(now - lastInputTime.load()).count();
+
         bool passiveMode = (idleSec > INACTIVITY_SECONDS);
 
         if (passiveMode) {
-            // cycle passive effects after timeout
-            auto ms = duration_cast<milliseconds>(now - effectStart).count();
+            auto ms =
+                duration_cast<milliseconds>(now - effectStart).count();
+
             if (ms > EFFECT_SWITCH_MS) {
                 currentEffect = (currentEffect + 1) % EFFECT_COUNT;
                 effectStart = now;
             }
 
-            // print effect change once
             if (!wasPassive || lastPrintedEffect != currentEffect) {
-                std::cout << "[MAIN] Passive mode active. Playing effect index: "
-                          << currentEffect << '\n';
+                std::cout << "[MAIN] Passive mode. Effect index: "
+                          << currentEffect << "\n";
                 lastPrintedEffect = currentEffect;
             }
 
-            // draw and show passive effect (full-strip overwrite)
             effects[currentEffect]();
             ws2811_render(&ledstring);
-
             wasPassive = true;
         }
         else {
-            // entering active mode: clear previous passive content
+            // exit passive mode cleanly
             if (wasPassive) {
-                for (int i = 0; i < LED_COUNT; ++i) ledstring.channel[0].leds[i] = 0;
+                for (int i = 0; i < LED_COUNT; ++i)
+                    ledstring.channel[0].leds[i] = 0;
+
                 for (int i = 0; i < LED_COUNT; ++i) {
-                    brightnessSum[i] = 0;
+                    brightnessSum[i]  = 0;
                     hueWeightedSum[i] = 0;
-                    overlapCount[i] = 0;
+                    overlapCount[i]   = 0;
                 }
+
                 wasPassive = false;
-                std::cout << "[MAIN] Exiting passive mode (activity detected)" << '\n';
+                std::cout << "[MAIN] Exiting passive mode\n";
             }
 
-            // special effect mode (1..3) overrides everything
-            if (specialEffect.load() != -1) {
-                int se = specialEffect.load();
-                if (se == 1) effect_special1();
-                else if (se == 2) effect_special2();
-                else if (se == 3) effect_special3();
-                ws2811_render(&ledstring);
-            }
-            else {
-                // normal snake rendering pipeline
-                composeAndShow();
+            composeAndShow();
 
-                // show hold-preview (two LEDs lit with chosen hue)
-                if (holdActive.load()) {
-                    int hk = heldKey.load();
-                    int hue = heldHueInt.load();
-                    int origin = hk - 1;
-                    if (origin >= 0 && origin < LED_COUNT - 1) {
-                        uint32_t col = CHSV_to_RGB((uint8_t)hue, SATURATION, SNAKE_FADE_MAX);
-                        ledstring.channel[0].leds[origin] = col;
-                        ledstring.channel[0].leds[origin+1] = col;
-                    }
+            // key-hold preview (only outside song)
+            if (holdActive.load()) {
+                int hk  = heldKey.load();
+                int hue = heldHueInt.load();
+                int origin = hk - 1;
+
+                if (origin >= 0 && origin < LED_COUNT - 1) {
+                    uint32_t col =
+                        CHSV_to_RGB((uint8_t)hue,
+                                    SATURATION,
+                                    SNAKE_FADE_MAX);
+                    ledstring.channel[0].leds[origin]   = col;
+                    ledstring.channel[0].leds[origin+1] = col;
                 }
-
-                ws2811_render(&ledstring);
             }
+
+            ws2811_render(&ledstring);
         }
 
-        // main loop refresh rate
-        std::this_thread::sleep_for(std::chrono::milliseconds(MAIN_LOOP_MS));
+        std::this_thread::sleep_for(milliseconds(MAIN_LOOP_MS));
     }
 
-    // shutdown routine
+    // ================== SHUTDOWN ==================
     reader.join();
     ws2811_fini(&ledstring);
     delete[] ledstring.channel[0].leds;
+
     return 0;
 }

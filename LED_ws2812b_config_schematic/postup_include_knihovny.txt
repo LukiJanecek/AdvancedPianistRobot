@@ -1,0 +1,38 @@
+WORKING: - NUNTNO CELOU CESTU MANUÁLNĚ - NEFUNGUJE MAKRO PROJECT FOLDER
+
+1️⃣ Include cesty (header files)
+
+V Eclipse klikni na projekt → Properties
+
+C/C++ Build → Settings → GCC++ compiler → Includes → Include paths: 
+
+Klikni Add…
+
+Zadej cestu k hlavičkám rpi_ws281x. Podle tvé instalace, např.:
+
+/home/user/Pianist/RTOS/CPP_RTOS_LED/libraries/rpi_ws281x/install/include
+
+
+Potvrď OK, pak Apply and Close - když tak ok rebuild index
+
+Teď Eclipse ví, kde hledat #include <ws2811/ws2811.h>.
+
+
+
+2️⃣ Library (statická knihovna .a) a linkování
+
+Zůstaň v Properties → C/C++ Build → Settings → GCC C++ Linker → Libraries
+
+Libraries (-l) → klikni Add → napiš:
+
+ws2811
+
+
+Library search path (-L) → klikni Add → vlož cestu k lib:
+
+/home/user/Pianist/RTOS/CPP_RTOS_LED/libraries/rpi_ws281x/install/lib
+
+
+Apply and Close
+
+Tímto říkáš linkeru, aby našel libws2811.a.

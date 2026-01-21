@@ -1,0 +1,23 @@
+sudo apt install openjdk-21-jdk
+- java pro eclipse
+
+
+Eclipse IDE for C/C++ developers
+
+
+git clone https://github.com/jgarff/rpi_ws281x.git
+cd rpi_ws281x
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../install
+make -j$(nproc)
+make install
+- knihovna pro LED pásky
+- Je CMake opravdu potřeba?
+Ne nutně, ale velmi doporučený.
+Důvod: projekt rpi_ws281x (oficiální knihovna pro ovládání WS2812 na Raspberry Pi) používá CMake pro generování Makefile.
+Bez něj bys musel: ručně psát gcc příkazy s desítkami parametrů (zdrojové soubory, knihovny, cesty), nebo upravit existující Makefile.
+
+=> sudo apt update
+sudo apt install -y cmake build-essential git
+
+
