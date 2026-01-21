@@ -14,13 +14,10 @@ services:
       - /bin/bash
       - -c
       - |
-          set -e
-
           # zajisti existenci adresáře
           mkdir -p /tmp/led
 
-          # -------- PIPELINE 1 --------
-          # DATA FIFO 1
+          # DATA FIFO
           if [ ! -p /tmp/led/pipe ]; then
             mkfifo -m 666 /tmp/led/pipe
             echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/pipe"
@@ -28,7 +25,7 @@ services:
             echo "[ENTRYPOINT] FIFO /tmp/led/pipe už existuje"
           fi
 
-          # ACK FIFO 1 (sjednoceno s PipeLine_config.py: /tmp/led/ack_pipe)
+          # ACK FIFO
           if [ ! -p /tmp/led/ack_pipe ]; then
             mkfifo -m 666 /tmp/led/ack_pipe
             echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/ack_pipe"
@@ -36,26 +33,10 @@ services:
             echo "[ENTRYPOINT] FIFO /tmp/led/ack_pipe už existuje"
           fi
 
-          # -------- PIPELINE 2 --------
-          # DATA FIFO 2
-          if [ ! -p /tmp/led/pipe2 ]; then
-            mkfifo -m 666 /tmp/led/pipe2
-            echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/pipe2"
-          else
-            echo "[ENTRYPOINT] FIFO /tmp/led/pipe2 už existuje"
-          fi
-
-          # ACK FIFO 2
-          if [ ! -p /tmp/led/ack_pipe2 ]; then
-            mkfifo -m 666 /tmp/led/ack_pipe2
-            echo "[ENTRYPOINT] Vytvářím FIFO /tmp/led/ack_pipe2"
-          else
-            echo "[ENTRYPOINT] FIFO /tmp/led/ack_pipe2 už existuje"
-          fi
-
           echo "[ENTRYPOINT] Startuju uvicorn..."
           exec uvicorn main:app --host 0.0.0.0 --port 8000
     healthcheck:
+      # uvnitř kontejneru nehardcoduj 192.168.x.x, ale localhost
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
       timeout: 5s

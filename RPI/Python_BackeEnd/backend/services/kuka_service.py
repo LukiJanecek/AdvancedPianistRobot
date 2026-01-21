@@ -5,30 +5,14 @@ import sys
 import struct
 import random
 import socket
-import time
+import threading, time, sys
 import asyncio
 import re
 import os
 import errno
 import select
-from dataclasses import dataclass
 
-from core.PipeLine_config import (
-    PIPE_PATH, OFFSET, ACK_PIPE_PATH,
-    PIPE2_PATH, ACK2_PIPE_PATH,
-)
-
-@dataclass(frozen=True)
-class PipelineConfig:
-    name: str
-    data_path: str
-    ack_path: str
-
-
-PIPELINES = (
-    PipelineConfig(name="P1", data_path=PIPE_PATH,  ack_path=ACK_PIPE_PATH),
-    PipelineConfig(name="P2", data_path=PIPE2_PATH, ack_path=ACK2_PIPE_PATH),
-)
+from core.PipeLine_config import PIPE_PATH, OFFSET, ACK_PIPE_PATH
 
 
 SONG_MAP: dict[int, str] = {
@@ -517,63 +501,64 @@ class KUKA_Handler:
         return pose or None
 
 
-    # -----------------------------
-    # PIPELINE HELPERS (P1 + P2)
-    # -----------------------------
     @staticmethod
     def ensure_fifos():
-        """Vytvoří FIFO soubory pro všechny pipeline, pokud neexistují (jen POSIX)."""
+        """Vytvoří FIFO soubory, pokud neexistují (jen na POSIX systémech)."""
         if os.name == "nt":
             print("[KUKA][KEYPOSLOOP] Windows detected -> FIFOs not created (skipping mkfifo).")
             return
 
-        for p in PIPELINES:
-            try:
-                if not os.path.exists(p.data_path):
-                    os.mkfifo(p.data_path, 0o666)
-                    print(f"[KUKA][KEYPOSLOOP] Created FIFO({p.name}) DATA: {p.data_path}")
-            except FileExistsError:
-                pass
-            except OSError as e:
-                print(f"[KUKA][KEYPOSLOOP] mkfifo({p.name}) {p.data_path} failed: {e}")
+        try:
+            if not os.path.exists(PIPE_PATH):
+                os.mkfifo(PIPE_PATH, 0o666)
+                print(f"[KUKA][KEYPOSLOOP] Created FIFO: {PIPE_PATH}")
+        except FileExistsError:
+            pass
+        except OSError as e:
+            print(f"[KUKA][KEYPOSLOOP] mkfifo {PIPE_PATH} failed: {e}")
 
-            try:
-                if not os.path.exists(p.ack_path):
-                    os.mkfifo(p.ack_path, 0o666)
-                    print(f"[KUKA][KEYPOSLOOP] Created FIFO({p.name}) ACK:  {p.ack_path}")
-            except FileExistsError:
-                pass
-            except OSError as e:
-                print(f"[KUKA][KEYPOSLOOP] mkfifo({p.name}) {p.ack_path} failed: {e}")
+        try:
+            if not os.path.exists(ACK_PIPE_PATH):
+                os.mkfifo(ACK_PIPE_PATH, 0o666)
+                print(f"[KUKA][KEYPOSLOOP] Created ACK FIFO: {ACK_PIPE_PATH}")
+        except FileExistsError:
+            pass
+        except OSError as e:
+            print(f"[KUKA][KEYPOSLOOP] mkfifo {ACK_PIPE_PATH} failed: {e}")
 
     @staticmethod
-    def try_open_ack_pipe(p: PipelineConfig):
+    def try_open_ack_pipe():
         """Zkusí otevřít ACK pipe pro čtení non-blocking. Vrací fd nebo None."""
         if os.name == "nt":
             return None
         try:
-            fd = os.open(p.ack_path, os.O_RDONLY | os.O_NONBLOCK)
-            print(f"[KUKA][KEYPOSLOOP] Opened ACK pipe ({p.name}) for reading.")
+            fd = os.open(ACK_PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
+            print("[KUKA][KEYPOSLOOP] Opened ACK pipe for reading.")
             return fd
         except OSError as e:
-            print(f"[KUKA][KEYPOSLOOP] Could not open ACK pipe ({p.name}) for read now: {e}. Will retry later.")
+            print(f"[KUKA][KEYPOSLOOP] Could not open ACK pipe for read now: {e}. Will retry later.")
             return None
 
     @staticmethod
-    def try_open_write_nb(p: PipelineConfig):
+    def try_open_write_nb():
         """Zkusí otevřít write-end DATA pipe non-blocking. Vrací fd nebo None."""
         try:
-            fd = os.open(p.data_path, os.O_WRONLY | os.O_NONBLOCK)
+            fd = os.open(PIPE_PATH, os.O_WRONLY | os.O_NONBLOCK)
             return fd
         except OSError as e:
             if e.errno in (errno.ENXIO, errno.ENOENT):
+                # nikdo nečte, nebo pipe ještě není
                 return None
             else:
-                print(f"[KUKA][KEYPOSLOOP] open write error ({p.name}): {e}")
+                print(f"[KUKA][KEYPOSLOOP] open write error: {e}")
                 return None
 
     @staticmethod
     def drain_ack_for_seq(ack_fd, expected_seq: int) -> bool:
+        """
+        Zkusí non-blocking z ACK fifo vytáhnout ACK:<seq>.
+        Jednoduchá verze: přečte až 1024 B, hledá řádky "ACK:<číslo>".
+        """
         if ack_fd is None:
             return False
 
@@ -594,6 +579,7 @@ class KUKA_Handler:
             return False
 
         if not data:
+            # writer na druhé straně skončil
             return False
 
         text = data.decode("utf-8", errors="ignore")
@@ -608,9 +594,9 @@ class KUKA_Handler:
                     pass
         return False
 
+
     async def send_with_ack(
         self,
-        p: PipelineConfig,
         seq: int,
         value: int,
         ack_fd,
@@ -621,9 +607,11 @@ class KUKA_Handler:
         max_retries: int = 3,
     ) -> bool:
         """
-        Handshake pro konkrétní pipeline p:
-          - pošli 'seq:value\\n' do p.data_path (non-blocking open)
-          - čekej na 'ACK:seq' z p.ack_path (přes ack_fd) s timeoutem
+        Jednoduchý handshake:
+          - pošli 'seq:value\\n' do PIPE_PATH (non-blocking open)
+          - čekej na 'ACK:seq' z ACK_PIPE_PATH (přes ack_fd) s timeoutem
+          - max_retries opakování
+        Vrací True/False podle toho, zda přišel ACK.
         """
         msg = f"{seq}:{value}\n".encode("utf-8")
 
@@ -631,71 +619,37 @@ class KUKA_Handler:
         while attempt < max_retries:
             attempt += 1
 
-            wfd = self.try_open_write_nb(p)
+            # 1) otevřít write-end neblokující (pokud nikdo nečte, vrátí None)
+            wfd = self.try_open_write_nb()
             if wfd is None:
-                print(f"[KUKA][KEYPOSLOOP][{p.name}] No reader for DATA pipe, retry open... (attempt {attempt})")
+                print(f"[KUKA][KEYPOSLOOP][PIPELINE] No reader for DATA pipe, retry open... (attempt {attempt})")
                 await asyncio.sleep(open_retry_delay)
                 continue
 
             try:
                 os.write(wfd, msg)
             except Exception as e:
-                print(f"[KUKA][KEYPOSLOOP][{p.name}] write failed (attempt {attempt}): {e}")
+                print(f"[KUKA][KEYPOSLOOP][PIPELINE] write failed (attempt {attempt}): {e}")
             finally:
                 try:
                     os.close(wfd)
                 except Exception:
                     pass
 
+            # 2) čekání na ACK
             start_wait = time.time()
             while time.time() - start_wait < ack_timeout:
                 if self.drain_ack_for_seq(ack_fd, seq):
-                    print(f"[KUKA][KEYPOSLOOP][{p.name}] ACK for seq={seq}, val={value} received (attempt {attempt})")
+                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] ACK for seq={seq}, val={value} received (attempt {attempt})")
                     return True
                 await asyncio.sleep(0.01)
 
-            print(f"[KUKA][KEYPOSLOOP][{p.name}] No ACK for seq={seq} (attempt {attempt}), retrying...")
+            print(f"[KUKA][KEYPOSLOOP][PIPELINE] No ACK for seq={seq} (attempt {attempt}), retrying...")
             await asyncio.sleep(write_retry_delay)
 
-        print(f"[KUKA][KEYPOSLOOP][{p.name}] FAILED to get ACK after {max_retries} attempts for seq={seq}, val={value}")
+        print(f"[KUKA][KEYPOSLOOP][PIPELINE] FAILED to get ACK after {max_retries} attempts for seq={seq}, val={value}")
         return False
 
-    async def send_to_all_pipelines(self, seq: int, value: int, ack_fds: dict[str, int | None]):
-        """
-        Pošle stejný (seq:value) do všech pipeline.
-        Pokud u pipeline není ack_fd otevřený -> pošle bez ACK (best-effort).
-        """
-        for p in PIPELINES:
-            ack_fd = ack_fds.get(p.name)
-            if ack_fd is None:
-                # best-effort bez ACK
-                wfd = self.try_open_write_nb(p)
-                if wfd is None:
-                    print(f"[KUKA][KEYPOSLOOP][{p.name}] Nikdo nečte DATA pipe, zpráva se neodeslala (seq={seq}, val={value}).")
-                    continue
-                try:
-                    os.write(wfd, f"{seq}:{value}\n".encode("utf-8"))
-                    print(f"[KUKA][KEYPOSLOOP][{p.name}] Odesláno bez ACK (seq={seq}, val={value})")
-                except Exception as e:
-                    print(f"[KUKA][KEYPOSLOOP][{p.name}] write bez ACK selhalo: {e}")
-                finally:
-                    try:
-                        os.close(wfd)
-                    except Exception:
-                        pass
-            else:
-                ok = await self.send_with_ack(
-                    p,
-                    seq,
-                    value,
-                    ack_fd,
-                    open_retry_delay=0.05,
-                    write_retry_delay=0.05,
-                    ack_timeout=1.0,
-                    max_retries=3,
-                )
-                if not ok:
-                    print(f"[KUKA][KEYPOSLOOP][{p.name}] WARN: message not ACKed (seq={seq}, val={value})")
 
 
     # Asynchronní smyčka pro čtení klávesy a pozice + odesílání do FIFO
@@ -727,10 +681,8 @@ class KUKA_Handler:
         # vytvořit FIFOs
         self.ensure_fifos()
 
-        # otevřít ACK pipes (non-blocking) pro P1 i P2
-        ack_fds: dict[str, int | None] = {p.name: None for p in PIPELINES}
-        for p in PIPELINES:
-            ack_fds[p.name] = self.try_open_ack_pipe(p)
+        # otevřít ACK pipe (non-blocking)
+        ack_fd = self.try_open_ack_pipe()
 
         try:
             while True:
@@ -739,11 +691,9 @@ class KUKA_Handler:
                 #     print("[KUKA][KEYPOSLOOP] Keyposloop stále běží...")
                 #     last_alive = time.time()
 
-                # pokud se nějaká ACK pipe zavřela / není otevřená, zkus ji znovu otevřít
-                if os.name != "nt":
-                    for p in PIPELINES:
-                        if ack_fds.get(p.name) is None:
-                            ack_fds[p.name] = self.try_open_ack_pipe(p)
+                # pokud se ACK pipe zavřela, zkus ji znovu otevřít
+                if ack_fd is None and os.name != "nt":
+                    ack_fd = self.try_open_ack_pipe()
 
                 # 1) kontrola připojení robota
                 if not await self.KUKA_IsConnected():
@@ -792,8 +742,38 @@ class KUKA_Handler:
                     if last_status == "song" and status != "song" and not song_end_sent:
                         seq_counter += 1
                         seq = seq_counter
-                        await self.send_to_all_pipelines(seq, -1, ack_fds)
-                        print(f"[KUKA][KEYPOSLOOP] SONG END -> odesílám -1 do všech pipeline (seq={seq})")
+                        value = -1
+
+                        print(f"[KUKA][KEYPOSLOOP] SONG END -> odesílám -1 (seq={seq})")
+
+                        if ack_fd is None:
+                            print("[KUKA][KEYPOSLOOP][PIPELINE] ACK pipe není otevřená, posílám -1 bez kontroly ACK.")
+                            wfd = self.try_open_write_nb()
+                            if wfd is not None:
+                                try:
+                                    os.write(wfd, f"{seq}:{value}\n".encode("utf-8"))
+                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesláno -1 (bez ACK) seq={seq}")
+                                except Exception as e:
+                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] write(-1) bez ACK selhalo: {e}")
+                                finally:
+                                    try:
+                                        os.close(wfd)
+                                    except Exception:
+                                        pass
+                            else:
+                                print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte DATA pipe, -1 se neodeslala.")
+                        else:
+                            await self.send_with_ack(
+                                seq,
+                                value,
+                                ack_fd,
+                                open_retry_delay=0.05,
+                                write_retry_delay=0.05,
+                                ack_timeout=1.0,
+                                max_retries=3,
+                            )
+                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesláno -1 přes ACK-pipeline (seq={seq})")
+
                         song_end_sent = True
 
                     # Pokud jsme znovu ve stavu song, povol odeslání -1 pro příští konec
@@ -806,12 +786,16 @@ class KUKA_Handler:
                     # Tvoje původní logika:
                     playing_song = (status == "song")
 
+
                     # -------------------------------
                     # 1) PŘECHOD NA "DOLŮ"
                     # -------------------------------
                     if is_down and not was_down:
                         print(f"[KUKA][KEYPOSLOOP] -----------------------------------> Robot šel DOLŮ (Z={z_pos:.3f})")
 
+                        # zjistíme, jestli se hraje song z cache
+                        state = await self.get_robot_state()
+                        playing_song = state.get("status") == "song"
 
                         if playing_song:
                             # využij číslo songu z WebSocketu / cache
@@ -823,15 +807,39 @@ class KUKA_Handler:
                                 seq = seq_counter
                                 value = int(song_number)
 
-                                await self.send_to_all_pipelines(seq, value, ack_fds)
-                                print(f"[KUKA][KEYPOSLOOP] SONG odeslán do všech pipeline: {value} (seq={seq})")
+                                if ack_fd is None:
+                                    print("[KUKA][KEYPOSLOOP][PIPELINE] ACK pipe není otevřená, posílám SONG bez kontroly ACK.")
+                                    wfd = self.try_open_write_nb()
+                                    if wfd is not None:
+                                        try:
+                                            os.write(wfd, f"{seq}:{value}\n".encode("utf-8"))
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odeslán song (bez ACK): {value} (seq={seq})")
+                                        except Exception as e:
+                                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] write SONG bez ACK selhalo: {e}")
+                                        finally:
+                                            try:
+                                                os.close(wfd)
+                                            except Exception:
+                                                pass
+                                    else:
+                                        print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte DATA pipe, song se neodeslal.")
+                                else:
+                                    await self.send_with_ack(
+                                        seq,
+                                        value,
+                                        ack_fd,
+                                        open_retry_delay=0.05,
+                                        write_retry_delay=0.05,
+                                        ack_timeout=1.0,
+                                        max_retries=3,
+                                    )
+                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odeslán song přes ACK-pipeline: {value} (seq={seq})")
 
                         else:
                             # --- LOGIKA PRO KLÁVESY, když song NEhraje ---
                             key = await self.KUKA_ReadVar("PyKey")
                             print(f"[KUKA][KEYPOSLOOP] Hodnota key: {key}")
 
-                            key_int = None
                             if key is None:
                                 print("[KUKA][KEYPOSLOOP] PyKey je None -> přeskočeno (žádná klávesa?)")
                             elif isinstance(key, str) and key.strip() == "":
@@ -863,8 +871,33 @@ class KUKA_Handler:
                                     seq_counter += 1
                                     seq = seq_counter
 
-                                    await self.send_to_all_pipelines(seq, int(shifted), ack_fds)
-                                    print(f"[KUKA][KEYPOSLOOP] KLÁVESA odeslána do všech pipeline: {shifted} (seq={seq})")
+                                    if ack_fd is None:
+                                        print("[KUKA][KEYPOSLOOP][PIPELINE] ACK pipe není otevřená, posílám KLÁVESU bez kontroly ACK.")
+                                        wfd = self.try_open_write_nb()
+                                        if wfd is not None:
+                                            try:
+                                                os.write(wfd, f"{seq}:{shifted}\n".encode("utf-8"))
+                                                print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílám klávesu (bez ACK): {shifted} (seq={seq})")
+                                            except Exception as e:
+                                                print(f"[KUKA][KEYPOSLOOP][PIPELINE] write KLÁVESY bez ACK selhalo: {e}")
+                                            finally:
+                                                try:
+                                                    os.close(wfd)
+                                                except Exception:
+                                                    pass
+                                        else:
+                                            print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte DATA pipe, klávesa se neodeslala.")
+                                    else:
+                                        await self.send_with_ack(
+                                            seq,
+                                            int(shifted),
+                                            ack_fd,
+                                            open_retry_delay=0.05,
+                                            write_retry_delay=0.05,
+                                            ack_timeout=1.0,
+                                            max_retries=3,
+                                        )
+                                        print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesílám klávesu přes ACK-pipeline: {shifted} (seq={seq})")
 
                     # -------------------------------
                     # 2) PŘECHOD NA "NAHORU"
@@ -876,8 +909,33 @@ class KUKA_Handler:
                         seq = seq_counter
                         value = 0
 
-                        await self.send_to_all_pipelines(seq, value, ack_fds)
-                        print(f"[KUKA][KEYPOSLOOP] 0 odeslána do všech pipeline (seq={seq})")
+                        if ack_fd is None:
+                            print("[KUKA][KEYPOSLOOP][PIPELINE] ACK pipe není otevřená, posílám 0 bez kontroly ACK.")
+                            wfd = self.try_open_write_nb()
+                            if wfd is not None:
+                                try:
+                                    os.write(wfd, f"{seq}:{value}\n".encode("utf-8"))
+                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesláno 0 (bez ACK) seq={seq}")
+                                except Exception as e:
+                                    print(f"[KUKA][KEYPOSLOOP][PIPELINE] write(0) bez ACK selhalo: {e}")
+                                finally:
+                                    try:
+                                        os.close(wfd)
+                                    except Exception:
+                                        pass
+                            else:
+                                print("[KUKA][KEYPOSLOOP][PIPELINE] Nikdo nečte DATA pipe, 0 se neodeslala.")
+                        else:
+                            await self.send_with_ack(
+                                seq,
+                                value,
+                                ack_fd,
+                                open_retry_delay=0.05,
+                                write_retry_delay=0.05,
+                                ack_timeout=1.0,
+                                max_retries=3,
+                            )
+                            print(f"[KUKA][KEYPOSLOOP][PIPELINE] Odesláno 0 přes ACK-pipeline (seq={seq})")
 
                     # aktualizace edge stavu
                     was_down = is_down
@@ -893,13 +951,11 @@ class KUKA_Handler:
         except Exception as e:
             print(f"[KUKA][KEYPOSLOOP] Neočekávaná chyba v key_and_position_loop: {e}")
         finally:
-            for p in PIPELINES:
-                fd = ack_fds.get(p.name)
-                try:
-                    if fd is not None:
-                        os.close(fd)
-                except Exception:
-                    pass
+            try:
+                if ack_fd is not None:
+                    os.close(ack_fd)
+            except Exception:
+                pass
 
 
 
